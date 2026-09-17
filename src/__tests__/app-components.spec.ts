@@ -1,9 +1,29 @@
-import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { flushPromises, mount } from "@vue/test-utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppDetail from "../components/app/AppDetail.vue";
 import AppIcon from "../components/app/AppIcon.vue";
 import AppList from "../components/app/AppList.vue";
 import type { InstalledApp } from "../api/types";
+
+const messageError = vi.hoisted(() => vi.fn());
+
+vi.mock("naive-ui", async () => {
+  const actual = await vi.importActual<typeof import("naive-ui")>("naive-ui");
+  return {
+    ...actual,
+    useMessage: () => ({
+      error: messageError,
+      info: vi.fn(),
+      success: vi.fn(),
+      warning: vi.fn(),
+    }),
+  };
+});
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openPath: vi.fn(() => Promise.reject(new Error("denied"))),
+  openUrl: vi.fn(() => Promise.reject(new Error("denied"))),
+}));
 
 const git: InstalledApp = {
   name: "git",
@@ -53,5 +73,23 @@ describe("AppDetail", () => {
   it("空选中显示空态", () => {
     const wrapper = mount(AppDetail, { props: { app: null } });
     expect(wrapper.text()).toContain("选择一个应用");
+  });
+
+  beforeEach(() => {
+    messageError.mockClear();
+  });
+
+  it("打开安装目录失败时提示错误", async () => {
+    const wrapper = mount(AppDetail, { props: { app: git } });
+    await wrapper.findAll("button")[1].trigger("click");
+    await flushPromises();
+    expect(messageError).toHaveBeenCalledWith("打开失败：无法打开目录");
+  });
+
+  it("打开主页失败时提示错误", async () => {
+    const wrapper = mount(AppDetail, { props: { app: git } });
+    await wrapper.findAll("button")[0].trigger("click");
+    await flushPromises();
+    expect(messageError).toHaveBeenCalledWith("打开失败：无法打开链接");
   });
 });

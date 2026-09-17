@@ -39,19 +39,30 @@
 </template>
 
 <script setup lang="ts">
-import { NButton, NDescriptions, NDescriptionsItem, NTag } from "naive-ui";
+import { NButton, NDescriptions, NDescriptionsItem, NTag, useMessage } from "naive-ui";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import AppIcon from "./AppIcon.vue";
 import type { InstalledApp } from "../../api/types";
 
 const props = defineProps<{ app: InstalledApp | null }>();
+const message = useMessage();
 
 async function openHomepage() {
-  if (props.app?.homepage) await openUrl(props.app.homepage);
+  if (!props.app?.homepage) return;
+  try {
+    await openUrl(props.app.homepage);
+  } catch {
+    message.error("打开失败：无法打开链接");
+  }
 }
 
 async function openDir() {
-  if (props.app) await openPath(props.app.app_dir);
+  if (!props.app) return;
+  try {
+    await openPath(props.app.app_dir);
+  } catch {
+    message.error("打开失败：无法打开目录");
+  }
 }
 </script>
 

@@ -32,7 +32,7 @@ const runningCount = computed(() => Object.values(logs.running).filter(Boolean).
 const lastRunningTask = computed(() => Object.keys(logs.running).find((k) => logs.running[k]) ?? null);
 
 watch(
-  () => logs.lines.length,
+  [() => logs.lines.length, () => ui.logDrawerOpen],
   async () => {
     await nextTick();
     if (bodyEl.value) bodyEl.value.scrollTop = bodyEl.value.scrollHeight;

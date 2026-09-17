@@ -1,21 +1,44 @@
 <template>
   <div class="page">
-    <p>共 {{ buckets.buckets.length }} 个桶</p>
-    <div v-if="buckets.error" class="error">{{ buckets.error }}</div>
+    <n-table :bordered="false" size="small">
+      <thead>
+        <tr>
+          <th>名称</th>
+          <th>来源</th>
+          <th>清单数</th>
+          <th>类型</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="b in store.buckets" :key="b.name">
+          <td>{{ b.name }}</td>
+          <td class="source">{{ b.source ?? "（本地目录，非 git）" }}</td>
+          <td>{{ b.manifest_count }}</td>
+          <td>{{ b.is_git ? "git" : "目录" }}</td>
+        </tr>
+      </tbody>
+    </n-table>
+    <div v-if="store.error" class="error">{{ store.error }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { NTable } from "naive-ui";
 import { useBucketsStore } from "../stores/buckets";
 
-const buckets = useBucketsStore();
+const store = useBucketsStore();
 </script>
 
 <style scoped>
 .page {
   padding: 16px;
-  height: 100%;
   overflow: auto;
+  height: 100%;
+}
+.source {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
 }
 .error {
   color: #d03050;

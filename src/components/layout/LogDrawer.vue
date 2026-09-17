@@ -19,13 +19,14 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
-import { NButton } from "naive-ui";
+import { NButton, useMessage } from "naive-ui";
 import { useLogsStore } from "../../stores/logs";
 import { useUiStore } from "../../stores/ui";
 import { cancelTask } from "../../api/commands";
 
 const logs = useLogsStore();
 const ui = useUiStore();
+const message = useMessage();
 const bodyEl = ref<HTMLElement | null>(null);
 
 const runningCount = computed(() => Object.values(logs.running).filter(Boolean).length);
@@ -40,7 +41,14 @@ watch(
 );
 
 async function cancelLast() {
-  if (lastRunningTask.value) await cancelTask(lastRunningTask.value);
+  const taskId = lastRunningTask.value;
+  if (!taskId) return;
+  try {
+    const ok = await cancelTask(taskId);
+    if (!ok) message.warning("任务已结束或不存在");
+  } catch (e) {
+    message.error(String(e));
+  }
 }
 </script>
 

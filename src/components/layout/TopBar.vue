@@ -6,7 +6,7 @@
         data-testid="topbar-root-select"
         style="width: 340px"
         size="small"
-        :value="roots.active?.path ?? null"
+        :value="rootValue"
         :options="rootOptions"
         :loading="roots.loading"
         placeholder="未找到 scoop 根目录"
@@ -44,7 +44,11 @@ const rootOptions = computed(() =>
   roots.roots.map((r) => ({
     label: `${r.path}（${r.app_count} 应用）${r.is_active ? " · 当前" : ""}`,
     value: r.path,
+    is_active: r.is_active,
   })),
+);
+const rootValue = computed(
+  () => rootOptions.value.find((o) => o.is_active)?.value ?? roots.active?.path ?? null,
 );
 const anyLoading = computed(() => roots.loading || apps.loading || buckets.loading);
 

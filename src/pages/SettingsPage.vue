@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { NButton, NDescriptions, NDescriptionsItem } from "naive-ui";
 import { getScoopConfig, runScoop } from "../api/commands";
 import type { ScoopConfig } from "../api/types";
@@ -42,14 +42,17 @@ const config = ref<ScoopConfig | null>(null);
 
 const configJson = computed(() => (config.value ? JSON.stringify(config.value.values, null, 2) : ""));
 
-onMounted(async () => {
+async function loadConfig() {
+  config.value = null;
   if (!roots.active) return;
   try {
     config.value = await getScoopConfig();
   } catch {
     config.value = null;
   }
-});
+}
+
+watch(() => roots.active?.path, loadConfig, { immediate: true });
 
 async function checkEnv() {
   const taskId = `check-${Date.now()}`;

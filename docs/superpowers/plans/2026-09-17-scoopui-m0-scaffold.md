@@ -198,7 +198,7 @@ Expected: 新增一次提交。
 
 **Files:**
 - Modify: `package.json`（依赖 + scripts）、`src-tauri/Cargo.toml`、`src-tauri/src/lib.rs`、`src-tauri/capabilities/default.json`、`src/main.ts`、`src/App.vue`
-- Create: `src/api/tauri.ts`、`src/__tests__/tauri.spec.ts`、`vitest.config.ts`
+- Create: `src/api/tauri.ts`、`src/__tests__/tauri.spec.ts`（M0 的测试不需要独立 vitest 配置文件，vitest 直接读 `vite.config.ts`）
 - Test: `src/__tests__/tauri.spec.ts`、`src-tauri/src/lib.rs` 内 `#[cfg(test)]`
 
 **Interfaces:**
@@ -286,17 +286,7 @@ Expected: `Finished`（无 error）。
 
 - [ ] **Step 4: 写前端第一个测试（红）**
 
-创建 `src/api/tauri.ts`：
-
-```ts
-import { invoke as tauriInvoke } from "@tauri-apps/api/core";
-
-export function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  return tauriInvoke<T>(cmd, args);
-}
-```
-
-创建 `src/__tests__/tauri.spec.ts`（先只写测试，暂不创建 `src/api/tauri.ts` 会红；此处实际顺序为：先建测试文件，再建实现文件，故 Step 4 只创建测试）：
+只创建测试文件 `src/__tests__/tauri.spec.ts`（此时 `src/api/tauri.ts` 尚不存在，测试会红）：
 
 ```ts
 import { describe, expect, it, vi } from "vitest";

@@ -77,6 +77,24 @@ describe("stores", () => {
     expect(store.active?.path).toBe("C:\\scoop");
   });
 
+  it("roots.setActive 会刷新根目录", async () => {
+    mocks.getActiveRoot.mockResolvedValue(rootFixture);
+    mocks.detectRoots.mockResolvedValue([rootFixture]);
+    mocks.setActiveRoot.mockResolvedValue(rootFixture);
+    const store = useRootsStore();
+    await store.load();
+    await store.setActive("C:\\scoop");
+    expect(mocks.detectRoots).toHaveBeenCalled();
+    expect(mocks.getActiveRoot).toHaveBeenCalledTimes(2);
+  });
+
+  it("roots.add 失败时写入 error", async () => {
+    mocks.addRoot.mockRejectedValue("根目录无效（缺少 apps/buckets/shims 目录）: X");
+    const store = useRootsStore();
+    await store.add("X");
+    expect(store.error).toContain("根目录无效（缺少 apps/buckets/shims 目录）: X");
+  });
+
   it("apps.load 拉取列表并支持选中", async () => {
     mocks.listInstalledApps.mockResolvedValue([appFixture]);
     const store = useAppsStore();
@@ -84,6 +102,22 @@ describe("stores", () => {
     store.select("git");
     expect(store.apps).toHaveLength(1);
     expect(store.selected?.name).toBe("git");
+  });
+
+  it("apps.load 选中在列表变化时回退", async () => {
+    mocks.listInstalledApps.mockResolvedValue([appFixture]);
+    const store = useAppsStore();
+    await store.load();
+    expect(store.selectedName).toBe("git");
+
+    mocks.listInstalledApps.mockResolvedValue([]);
+    await store.load();
+    expect(store.selectedName).toBeNull();
+
+    mocks.listInstalledApps.mockResolvedValue([{ ...appFixture, name: "7zip" }]);
+    store.select("git");
+    await store.load();
+    expect(store.selectedName).toBe("7zip");
   });
 
   it("apps.load 失败时 error 与空列表", async () => {
@@ -99,5 +133,13 @@ describe("stores", () => {
     const store = useBucketsStore();
     await store.load();
     expect(store.buckets[0]).toMatchObject({ name: "main", manifest_count: 1641 });
+  });
+
+  it("buckets.load 失败时 error 与空列表", async () => {
+    mocks.listBuckets.mockRejectedValue("未找到可用的 scoop 根目录");
+    const store = useBucketsStore();
+    await store.load();
+    expect(store.buckets).toEqual([]);
+    expect(store.error).toContain("未找到");
   });
 });

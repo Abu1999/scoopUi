@@ -452,7 +452,7 @@ export PATH="$USERPROFILE/.cargo/bin:$PATH"
 cargo test manifest:: 2>&1 | tail -6
 ```
 
-Expected: 编译失败（`pub mod domain;` 未声明）——红。
+Expected: `0 tests matched`（`pub mod domain;` 未声明，测试文件不被编译）——红。注意：未声明的模块不会触发编译错误，RED 表现为没有测试被执行。
 
 - [ ] **Step 3: 在 lib.rs 声明模块**
 

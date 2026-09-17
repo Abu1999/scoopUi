@@ -203,8 +203,13 @@ pub fn stream_child(
     let h_out = out.map(|o| std::thread::spawn(move || read_stream(o, "stdout", tx_out)));
     let h_err = err.map(|e| std::thread::spawn(move || read_stream(e, "stderr", tx)));
 
+    let stopped = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let drain_stopped = stopped.clone();
     let drain = std::thread::spawn(move || {
         for line in rx {
+            if drain_stopped.load(std::sync::atomic::Ordering::SeqCst) {
+                break;
+            }
             let hook = std::panic::AssertUnwindSafe(|| on_line(line));
             let _ = std::panic::catch_unwind(hook);
         }
@@ -226,6 +231,7 @@ pub fn stream_child(
             j.terminate();
         }
         if !wait_threads(&handles, STREAM_EXTRA_WAIT) {
+            stopped.store(true, std::sync::atomic::Ordering::SeqCst);
             eprintln!("scoopcmd::stream_child: 读取线程未在宽限期内结束，放弃等待并分离线程");
             return Ok(status.code());
         }
@@ -326,6 +332,43 @@ mod tests {
         println!("stream_child 耗时 {:?}", elapsed);
         assert_eq!(code, Some(0));
         assert!(elapsed.as_secs() < 15, "stream_child 耗时 {:?}", elapsed);
+    }
+
+    fn spawn_without_job(cmd: &ScoopCommand) -> Spawned {
+        let mut spawned = spawn(cmd).unwrap();
+        spawned.job = None;
+        spawned
+    }
+
+    #[test]
+    fn no_callbacks_after_detach() {
+        let cmd = ScoopCommand {
+            program: "cmd.exe".into(),
+            args: vec!["/C".into(), "start /B ping -n 60 127.0.0.1".into()],
+            envs: vec![],
+            display: "detach".into(),
+        };
+        let count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = count.clone();
+        let started = std::time::Instant::now();
+        let code = stream_child(spawn_without_job(&cmd), move |_| {
+            counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        })
+        .unwrap();
+        let elapsed = started.elapsed();
+        assert!(elapsed >= Duration::from_secs(4), "应走到 detach 分支: {:?}", elapsed);
+        std::thread::sleep(Duration::from_millis(300));
+        let at_quiet = count.load(std::sync::atomic::Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(2500));
+        let after = count.load(std::sync::atomic::Ordering::SeqCst);
+        println!("detach 返回耗时 {:?}, 回调数 quiet={} after={}", elapsed, at_quiet, after);
+        assert_eq!(
+            after,
+            at_quiet,
+            "stream_child 返回后 on_line 仍在回调（{} 次）",
+            after - at_quiet
+        );
+        assert_eq!(code, Some(0));
     }
 
     #[test]

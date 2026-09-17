@@ -68,11 +68,15 @@ pub fn run_scoop(
 }
 
 pub(crate) fn cancel_task_inner(state: &AppState, task_id: &str) -> bool {
-    let pid = state.tasks.lock().unwrap().remove(task_id);
-    match pid {
-        Some(pid) => scoopcmd::kill_tree(pid),
-        None => false,
+    let pid = match state.tasks.lock().unwrap().get(task_id).copied() {
+        Some(pid) => pid,
+        None => return false,
+    };
+    let ok = scoopcmd::kill_tree(pid);
+    if ok {
+        state.tasks.lock().unwrap().remove(task_id);
     }
+    ok
 }
 
 #[tauri::command(async)]
@@ -142,5 +146,22 @@ mod tests {
         let start = std::time::Instant::now();
         let _ = spawned.child.wait();
         assert!(start.elapsed().as_secs() < 10);
+    }
+
+    #[test]
+    fn cancel_dead_task_returns_false_and_keeps_entry() {
+        let cmd = scoopcmd::ScoopCommand {
+            program: "cmd.exe".to_string(),
+            args: vec!["/C".to_string(), "exit /b 0".to_string()],
+            envs: vec![],
+            display: "dead".to_string(),
+        };
+        let mut spawned = scoopcmd::spawn(&cmd).unwrap();
+        let pid = spawned.pid();
+        let _ = spawned.child.wait();
+        let state = AppState::default();
+        state.tasks.lock().unwrap().insert("task-dead".to_string(), pid);
+        assert!(!cancel_task_inner(&state, "task-dead"));
+        assert!(state.tasks.lock().unwrap().contains_key("task-dead"));
     }
 }

@@ -1,11 +1,20 @@
 import { flushPromises, mount } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppDetail from "../components/app/AppDetail.vue";
 import AppIcon from "../components/app/AppIcon.vue";
 import AppList from "../components/app/AppList.vue";
+import InstalledPage from "../pages/InstalledPage.vue";
+import { useAppsStore } from "../stores/apps";
 import type { InstalledApp } from "../api/types";
 
 const messageError = vi.hoisted(() => vi.fn());
+
+const listInstalledApps = vi.hoisted(() => vi.fn());
+
+vi.mock("../api/commands", () => ({
+  listInstalledApps,
+}));
 
 vi.mock("naive-ui", async () => {
   const actual = await vi.importActual<typeof import("naive-ui")>("naive-ui");
@@ -91,5 +100,17 @@ describe("AppDetail", () => {
     await wrapper.findAll("button")[0].trigger("click");
     await flushPromises();
     expect(messageError).toHaveBeenCalledWith("打开失败：无法打开链接");
+  });
+});
+
+describe("InstalledPage", () => {
+  it("加载失败时展示错误文本", async () => {
+    listInstalledApps.mockRejectedValueOnce("未找到 scoop 根目录");
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const apps = useAppsStore();
+    await apps.load();
+    const wrapper = mount(InstalledPage, { global: { plugins: [pinia] } });
+    expect(wrapper.text()).toContain("未找到 scoop 根目录");
   });
 });

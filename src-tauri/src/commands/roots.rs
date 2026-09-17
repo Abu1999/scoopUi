@@ -23,7 +23,20 @@ pub fn resolve_active_root(ctx: &Context, state: &AppState) -> Option<PathBuf> {
             return Some(p);
         }
     }
-    None
+    let probed = root::candidates(
+        ctx.env_scoop.clone(),
+        ctx.config_root_path(),
+        &known_roots(ctx),
+        &ctx.home,
+    )
+    .into_iter()
+    .map(|c| c.path)
+    .find(|p| root::validate(p).is_ok())?;
+    *state.active_root.lock().unwrap() = Some(probed.clone());
+    let mut s = settings::load(&ctx.settings_dir());
+    s.active_root = Some(probed.display().to_string());
+    let _ = settings::save(&ctx.settings_dir(), &s);
+    Some(probed)
 }
 
 fn known_roots(ctx: &Context) -> Vec<PathBuf> {
@@ -200,6 +213,36 @@ mod tests {
         assert_eq!(root::normalized(&got), root::normalized(&root));
         let cached = state.active_root.lock().unwrap().clone();
         assert_eq!(root::normalized(cached.as_ref().unwrap()), root::normalized(&root));
+    }
+
+    #[test]
+    fn resolve_auto_activates_probed_default_root() {
+        let tmp = tempfile::tempdir().unwrap();
+        let ctx = make_ctx(tmp.path());
+        let state = AppState::default();
+        let root = make_root(&ctx.home);
+        let got = resolve_active_root(&ctx, &state).unwrap();
+        assert_eq!(root::normalized(&got), root::normalized(&root));
+        let cached = state.active_root.lock().unwrap().clone();
+        assert_eq!(root::normalized(cached.as_ref().unwrap()), root::normalized(&root));
+        let saved = settings::load(&ctx.settings_dir());
+        assert_eq!(
+            saved.active_root.as_deref().map(|s| root::normalized(Path::new(s))),
+            Some(root::normalized(&root))
+        );
+        std::fs::remove_file(ctx.settings_dir().join("settings.json")).unwrap();
+        let again = resolve_active_root(&ctx, &state).unwrap();
+        assert_eq!(root::normalized(&again), root::normalized(&root));
+    }
+
+    #[test]
+    fn resolve_returns_none_when_no_root_detected() {
+        let tmp = tempfile::tempdir().unwrap();
+        let ctx = make_ctx(tmp.path());
+        let state = AppState::default();
+        assert!(resolve_active_root(&ctx, &state).is_none());
+        assert!(state.active_root.lock().unwrap().is_none());
+        assert!(!ctx.settings_dir().join("settings.json").exists());
     }
 
     #[test]

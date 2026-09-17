@@ -5,15 +5,22 @@ import AppDetail from "../components/app/AppDetail.vue";
 import AppIcon from "../components/app/AppIcon.vue";
 import AppList from "../components/app/AppList.vue";
 import InstalledPage from "../pages/InstalledPage.vue";
+import SettingsPage from "../pages/SettingsPage.vue";
+import { avatarColor } from "../utils/avatar";
 import { useAppsStore } from "../stores/apps";
-import type { InstalledApp } from "../api/types";
+import { useRootsStore } from "../stores/roots";
+import type { InstalledApp, RootInfo } from "../api/types";
 
 const messageError = vi.hoisted(() => vi.fn());
 
 const listInstalledApps = vi.hoisted(() => vi.fn());
+const getScoopConfig = vi.hoisted(() => vi.fn());
+const runScoop = vi.hoisted(() => vi.fn());
 
 vi.mock("../api/commands", () => ({
   listInstalledApps,
+  getScoopConfig,
+  runScoop,
 }));
 
 vi.mock("naive-ui", async () => {
@@ -54,8 +61,10 @@ describe("AppIcon", () => {
   it("无图标时显示首字母与稳定背景色", () => {
     const wrapper = mount(AppIcon, { props: { name: "git" } });
     expect(wrapper.text()).toContain("G");
+    const probe = document.createElement("div");
+    probe.style.background = avatarColor("git");
     const style = wrapper.find(".icon").attributes("style") ?? "";
-    expect(style).toContain("background");
+    expect(style).toContain(probe.style.background);
   });
 });
 
@@ -90,14 +99,18 @@ describe("AppDetail", () => {
 
   it("打开安装目录失败时提示错误", async () => {
     const wrapper = mount(AppDetail, { props: { app: git } });
-    await wrapper.findAll("button")[1].trigger("click");
+    const button = wrapper.findAll("button").find((b) => b.text().includes("打开安装目录"));
+    expect(button).toBeTruthy();
+    await button!.trigger("click");
     await flushPromises();
     expect(messageError).toHaveBeenCalledWith("打开失败：无法打开目录");
   });
 
   it("打开主页失败时提示错误", async () => {
     const wrapper = mount(AppDetail, { props: { app: git } });
-    await wrapper.findAll("button")[0].trigger("click");
+    const button = wrapper.findAll("button").find((b) => b.text().includes("打开主页"));
+    expect(button).toBeTruthy();
+    await button!.trigger("click");
     await flushPromises();
     expect(messageError).toHaveBeenCalledWith("打开失败：无法打开链接");
   });
@@ -112,5 +125,42 @@ describe("InstalledPage", () => {
     await apps.load();
     const wrapper = mount(InstalledPage, { global: { plugins: [pinia] } });
     expect(wrapper.text()).toContain("未找到 scoop 根目录");
+  });
+});
+
+describe("SettingsPage", () => {
+  it("切换根目录后重新加载配置", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const roots = useRootsStore();
+    const rootA: RootInfo = {
+      path: "C:\\scoop",
+      valid: true,
+      source: "env",
+      is_active: true,
+      app_count: 1,
+      bucket_count: 1,
+      has_portable_config: false,
+      global_dir: null,
+    };
+    roots.active = rootA;
+    getScoopConfig.mockResolvedValueOnce({
+      file_path: "C:\\scoop\\config.json",
+      portable: false,
+      values: {},
+    });
+    const wrapper = mount(SettingsPage, { global: { plugins: [pinia] } });
+    await flushPromises();
+    expect(getScoopConfig).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain("C:\\scoop\\config.json");
+    roots.active = { ...rootA, path: "D:\\scoop", is_active: true };
+    getScoopConfig.mockResolvedValueOnce({
+      file_path: "D:\\scoop\\config.json",
+      portable: true,
+      values: {},
+    });
+    await flushPromises();
+    expect(getScoopConfig).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).toContain("D:\\scoop\\config.json");
   });
 });

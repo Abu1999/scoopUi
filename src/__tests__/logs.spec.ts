@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Handler = (e: { payload: unknown }) => void;
 const listeners: Record<string, Handler> = {};
+let failListen = false;
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn((name: string, handler: Handler) => {
+    if (failListen) return Promise.reject(new Error("listen 失败"));
     listeners[name] = handler;
     return Promise.resolve(() => {});
   }),
@@ -15,12 +17,24 @@ import { useLogsStore } from "../stores/logs";
 describe("logs store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    failListen = false;
     for (const k of Object.keys(listeners)) delete listeners[k];
   });
 
   it("init 注册两个事件监听", async () => {
     const store = useLogsStore();
     await store.init();
+    expect(Object.keys(listeners).sort()).toEqual(["scoop-log", "scoop-task-end"]);
+  });
+
+  it("init 失败后可重试注册监听", async () => {
+    failListen = true;
+    const store = useLogsStore();
+    await expect(store.init()).rejects.toThrow("listen 失败");
+    expect(store.initialized).toBe(false);
+    failListen = false;
+    await store.init();
+    expect(store.initialized).toBe(true);
     expect(Object.keys(listeners).sort()).toEqual(["scoop-log", "scoop-task-end"]);
   });
 

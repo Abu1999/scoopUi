@@ -39,15 +39,15 @@ pub fn run_scoop(
     let ctx = context();
     let global = root::global_dir(ctx.env_global.clone(), ctx.config_global_path(), &ctx.program_data);
     let cmd = scoopcmd::build(&root_path, Some(&global), &args)?;
-    let child = scoopcmd::spawn(&cmd)?;
-    state.tasks.lock().unwrap().insert(task_id.clone(), child.id());
+    let spawned = scoopcmd::spawn(&cmd)?;
+    state.tasks.lock().unwrap().insert(task_id.clone(), spawned.pid());
 
     let app_handle = app.clone();
     let task = task_id.clone();
     std::thread::spawn(move || {
         let emit_handle = app_handle.clone();
         let emit_task = task.clone();
-        let result = scoopcmd::stream_child(child, move |l| {
+        let result = scoopcmd::stream_child(spawned, move |l| {
             let _ = emit_handle.emit(
                 "scoop-log",
                 LogPayload {

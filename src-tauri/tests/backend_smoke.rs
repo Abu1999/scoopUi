@@ -42,8 +42,10 @@ fn runs_real_scoop_version() {
     };
     let cmd = scoopcmd::build(&root_path, None, &["--version".to_string()]).unwrap();
     let child = scoopcmd::spawn(&cmd).unwrap();
-    let mut lines: Vec<String> = Vec::new();
-    let code = scoopcmd::stream_child(child, |l| lines.push(l.line)).unwrap();
+    let lines = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let sink = lines.clone();
+    let code = scoopcmd::stream_child(child, move |l| sink.lock().unwrap().push(l.line)).unwrap();
+    let lines = lines.lock().unwrap();
     println!("exit={:?} lines={}", code, lines.len());
     assert_eq!(code, Some(0));
     assert!(lines.iter().any(|l| l.to_lowercase().contains("scoop")));

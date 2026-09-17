@@ -1,8 +1,13 @@
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
 
 use crate::error::AppError;
+
+const STREAM_GRACE: Duration = Duration::from_secs(3);
+const STREAM_EXTRA_WAIT: Duration = Duration::from_secs(2);
+const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ScoopCommand {
@@ -25,7 +30,7 @@ pub fn quote_ps(s: &str) -> String {
 pub fn build(root: &Path, global: Option<&Path>, args: &[String]) -> Result<ScoopCommand, AppError> {
     let ps1 = root.join("apps").join("scoop").join("current").join("bin").join("scoop.ps1");
     if !ps1.is_file() {
-        return Err(AppError::InvalidRoot(root.display().to_string()));
+        return Err(AppError::MissingScoopScript(ps1.display().to_string()));
     }
     let joined = args.iter().map(|a| quote_ps(a)).collect::<Vec<_>>().join(" ");
     let script = format!(
@@ -52,7 +57,68 @@ pub fn build(root: &Path, global: Option<&Path>, args: &[String]) -> Result<Scoo
     })
 }
 
-pub fn spawn(cmd: &ScoopCommand) -> Result<Child, AppError> {
+pub struct Spawned {
+    pub child: Child,
+    pub job: Option<JobHandle>,
+}
+
+impl Spawned {
+    pub fn pid(&self) -> u32 {
+        self.child.id()
+    }
+}
+
+#[cfg(windows)]
+pub struct JobHandle(windows_sys::Win32::Foundation::HANDLE);
+
+#[cfg(windows)]
+unsafe impl Send for JobHandle {}
+
+#[cfg(windows)]
+impl JobHandle {
+    fn create() -> Option<Self> {
+        use windows_sys::Win32::System::JobObjects::CreateJobObjectW;
+        let handle = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+        if handle.is_null() {
+            None
+        } else {
+            Some(Self(handle))
+        }
+    }
+
+    fn assign(&self, child: &Child) -> bool {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::System::JobObjects::AssignProcessToJobObject;
+        unsafe { AssignProcessToJobObject(self.0, child.as_raw_handle() as _) != 0 }
+    }
+
+    fn terminate(&self) {
+        use windows_sys::Win32::System::JobObjects::TerminateJobObject;
+        unsafe {
+            TerminateJobObject(self.0, 1);
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for JobHandle {
+    fn drop(&mut self) {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        unsafe {
+            CloseHandle(self.0);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+pub struct JobHandle;
+
+#[cfg(not(windows))]
+impl JobHandle {
+    fn terminate(&self) {}
+}
+
+pub fn spawn(cmd: &ScoopCommand) -> Result<Spawned, AppError> {
     let mut c = Command::new(&cmd.program);
     c.args(&cmd.args)
         .stdin(Stdio::null())
@@ -66,47 +132,105 @@ pub fn spawn(cmd: &ScoopCommand) -> Result<Child, AppError> {
         use std::os::windows::process::CommandExt;
         c.creation_flags(0x08000000);
     }
-    Ok(c.spawn()?)
+    let child = c.spawn()?;
+    #[cfg(windows)]
+    let job = {
+        let mut job = JobHandle::create();
+        if let Some(j) = job.as_ref() {
+            if !j.assign(&child) {
+                eprintln!("scoopcmd::spawn: 无法将子进程加入 Job Object，退化为直接等待；孙进程持有管道时可能延迟返回");
+                job = None;
+            }
+        }
+        job
+    };
+    #[cfg(not(windows))]
+    let job: Option<JobHandle> = None;
+    Ok(Spawned { child, job })
+}
+
+fn read_stream<R: std::io::Read>(
+    reader: R,
+    stream: &'static str,
+    tx: std::sync::mpsc::Sender<StreamLine>,
+) {
+    let mut reader = BufReader::new(reader);
+    let mut buf: Vec<u8> = Vec::new();
+    loop {
+        buf.clear();
+        match reader.read_until(b'\n', &mut buf) {
+            Ok(0) => break,
+            Ok(_) => {
+                if buf.last() == Some(&b'\n') {
+                    buf.pop();
+                }
+                if buf.last() == Some(&b'\r') {
+                    buf.pop();
+                }
+                let line = String::from_utf8_lossy(&buf).into_owned();
+                if tx.send(StreamLine { stream, line }).is_err() {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+}
+
+fn wait_threads(handles: &[std::thread::JoinHandle<()>], limit: Duration) -> bool {
+    let deadline = Instant::now() + limit;
+    loop {
+        if handles.iter().all(|h| h.is_finished()) {
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        std::thread::sleep(POLL_INTERVAL);
+    }
 }
 
 pub fn stream_child(
-    mut child: Child,
-    mut on_line: impl FnMut(StreamLine) + Send,
+    spawned: Spawned,
+    mut on_line: impl FnMut(StreamLine) + Send + 'static,
 ) -> Result<Option<i32>, AppError> {
+    let Spawned { mut child, job } = spawned;
     let out = child.stdout.take();
     let err = child.stderr.take();
     let (tx, rx) = std::sync::mpsc::channel::<StreamLine>();
 
     let tx_out = tx.clone();
-    let h_out = out.map(|o| {
-        std::thread::spawn(move || {
-            for line in BufReader::new(o).lines().map_while(Result::ok) {
-                let _ = tx_out.send(StreamLine { stream: "stdout", line });
-            }
-        })
-    });
-    let h_err = err.map(|e| {
-        std::thread::spawn(move || {
-            for line in BufReader::new(e).lines().map_while(Result::ok) {
-                let _ = tx.send(StreamLine { stream: "stderr", line });
-            }
-        })
+    let h_out = out.map(|o| std::thread::spawn(move || read_stream(o, "stdout", tx_out)));
+    let h_err = err.map(|e| std::thread::spawn(move || read_stream(e, "stderr", tx)));
+
+    let drain = std::thread::spawn(move || {
+        for line in rx {
+            let hook = std::panic::AssertUnwindSafe(|| on_line(line));
+            let _ = std::panic::catch_unwind(hook);
+        }
     });
 
-    let status = std::thread::scope(|s| {
-        let drain = s.spawn(move || {
-            for line in rx {
-                on_line(line);
-            }
-        });
-        let status = child.wait();
-        let _ = drain.join();
-        status
-    })?;
+    let status = child.wait()?;
+
+    let mut handles: Vec<std::thread::JoinHandle<()>> = Vec::with_capacity(3);
     if let Some(h) = h_out {
-        let _ = h.join();
+        handles.push(h);
     }
     if let Some(h) = h_err {
+        handles.push(h);
+    }
+    handles.push(drain);
+
+    if !wait_threads(&handles, STREAM_GRACE) {
+        if let Some(j) = &job {
+            j.terminate();
+        }
+        if !wait_threads(&handles, STREAM_EXTRA_WAIT) {
+            eprintln!("scoopcmd::stream_child: 读取线程未在宽限期内结束，放弃等待并分离线程");
+            return Ok(status.code());
+        }
+    }
+    for h in handles {
         let _ = h.join();
     }
     Ok(status.code())
@@ -166,7 +290,8 @@ mod tests {
     #[test]
     fn build_rejects_missing_ps1() {
         let tmp = tempfile::tempdir().unwrap();
-        assert!(build(tmp.path(), None, &["list".into()]).is_err());
+        let err = build(tmp.path(), None, &["list".into()]).unwrap_err();
+        assert!(matches!(err, AppError::MissingScoopScript(_)));
     }
 
     #[test]
@@ -177,12 +302,78 @@ mod tests {
             envs: vec![],
             display: "test".into(),
         };
-        let child = spawn(&cmd).unwrap();
-        let mut lines: Vec<StreamLine> = Vec::new();
-        let code = stream_child(child, |l| lines.push(l)).unwrap();
+        let lines = std::sync::Arc::new(std::sync::Mutex::new(Vec::<StreamLine>::new()));
+        let sink = lines.clone();
+        let code = stream_child(spawn(&cmd).unwrap(), move |l| sink.lock().unwrap().push(l)).unwrap();
+        let lines = lines.lock().unwrap();
         assert_eq!(code, Some(3));
         assert!(lines.iter().any(|l| l.stream == "stdout" && l.line.contains("hello")));
         assert!(lines.iter().any(|l| l.stream == "stderr" && l.line.contains("warn")));
+    }
+
+    #[test]
+    fn returns_within_grace_when_grandchild_holds_pipes() {
+        let cmd = ScoopCommand {
+            program: "cmd.exe".into(),
+            args: vec!["/C".into(), "start /B ping -n 60 127.0.0.1".into()],
+            envs: vec![],
+            display: "grandchild".into(),
+        };
+        let child = spawn(&cmd).unwrap();
+        let start = std::time::Instant::now();
+        let code = stream_child(child, |_| {}).unwrap();
+        let elapsed = start.elapsed();
+        println!("stream_child 耗时 {:?}", elapsed);
+        assert_eq!(code, Some(0));
+        assert!(elapsed.as_secs() < 15, "stream_child 耗时 {:?}", elapsed);
+    }
+
+    #[test]
+    fn keeps_stream_after_invalid_utf8_bytes() {
+        let script = "$s=[Console]::OpenStandardOutput(); $b=[byte[]](0xff,0xfe,10); $s.Write($b,0,$b.Length); $t=[byte[]](0x74,0x61,0x69,0x6c,10); $s.Write($t,0,$t.Length); $s.Flush()";
+        let cmd = ScoopCommand {
+            program: "powershell.exe".into(),
+            args: vec!["-NoProfile".into(), "-Command".into(), script.into()],
+            envs: vec![],
+            display: "utf8".into(),
+        };
+        let child = spawn(&cmd).unwrap();
+        let lines = std::sync::Arc::new(std::sync::Mutex::new(Vec::<StreamLine>::new()));
+        let sink = lines.clone();
+        let code = stream_child(child, move |l| sink.lock().unwrap().push(l)).unwrap();
+        assert_eq!(code, Some(0));
+        let lines = lines.lock().unwrap();
+        assert!(
+            lines.iter().any(|l| l.stream == "stdout" && l.line.contains('\u{fffd}')),
+            "应收到非法字节行（有损解码）: {:?}",
+            lines.iter().map(|l| l.line.as_str()).collect::<Vec<_>>()
+        );
+        assert!(lines.iter().any(|l| l.line == "tail"), "非法 UTF-8 之后的行不应丢失");
+    }
+
+    #[test]
+    fn callback_panic_does_not_abort_stream() {
+        let cmd = ScoopCommand {
+            program: "cmd.exe".into(),
+            args: vec!["/C".into(), "echo one& echo two& exit /b 5".into()],
+            envs: vec![],
+            display: "panic".into(),
+        };
+        let child = spawn(&cmd).unwrap();
+        let lines = std::sync::Arc::new(std::sync::Mutex::new(Vec::<StreamLine>::new()));
+        let sink = lines.clone();
+        let seen = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = seen.clone();
+        let code = stream_child(child, move |l| {
+            let index = counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            sink.lock().unwrap().push(l);
+            if index == 0 {
+                panic!("模拟回调 panic");
+            }
+        })
+        .unwrap();
+        assert_eq!(code, Some(5));
+        assert_eq!(lines.lock().unwrap().len(), 2);
     }
 
     #[test]
@@ -193,11 +384,10 @@ mod tests {
             envs: vec![],
             display: "sleep".into(),
         };
-        let mut child = spawn(&cmd).unwrap();
-        let pid = child.id();
-        assert!(kill_tree(pid));
+        let mut spawned = spawn(&cmd).unwrap();
+        assert!(kill_tree(spawned.pid()));
         let start = std::time::Instant::now();
-        let _ = child.wait();
+        let _ = spawned.child.wait();
         assert!(start.elapsed().as_secs() < 10);
     }
 }

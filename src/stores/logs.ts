@@ -30,17 +30,27 @@ export const useLogsStore = defineStore("logs", {
       if (this.initialized) return;
       if (!this.initPromise) {
         this.initPromise = (async () => {
-          await listen<ScoopLogEvent>("scoop-log", (event) => this.append(event.payload));
-          await listen<ScoopTaskEndEvent>("scoop-task-end", (event) => this.end(event.payload));
-          this.initialized = true;
+          const unlisteners: Array<() => void> = [];
+          try {
+            unlisteners.push(
+              await listen<ScoopLogEvent>("scoop-log", (event) => this.append(event.payload)),
+            );
+            unlisteners.push(
+              await listen<ScoopTaskEndEvent>("scoop-task-end", (event) => this.end(event.payload)),
+            );
+            this.initialized = true;
+          } catch (e) {
+            for (const u of unlisteners) {
+              try {
+                u();
+              } catch {}
+            }
+            this.initPromise = null;
+            throw e;
+          }
         })();
       }
-      try {
-        await this.initPromise;
-      } catch (e) {
-        this.initPromise = null;
-        throw e;
-      }
+      return this.initPromise;
     },
     start(taskId: string, label: string) {
       this.labels[taskId] = label;

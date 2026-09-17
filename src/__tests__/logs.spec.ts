@@ -2,13 +2,22 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Handler = (e: { payload: unknown }) => void;
-const listeners: Record<string, Handler> = {};
+const registered: Record<string, Handler[]> = {};
+const failCalls = new Set<number>();
+let listenCalls = 0;
+let unlistenCalls = 0;
 let failListen = false;
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn((name: string, handler: Handler) => {
-    if (failListen) return Promise.reject(new Error("listen 失败"));
-    listeners[name] = handler;
-    return Promise.resolve(() => {});
+    listenCalls += 1;
+    if (failListen || failCalls.has(listenCalls)) return Promise.reject(new Error("listen 失败"));
+    (registered[name] ??= []).push(handler);
+    return Promise.resolve(() => {
+      unlistenCalls += 1;
+      const handlers = registered[name];
+      const index = handlers ? handlers.indexOf(handler) : -1;
+      if (index >= 0) handlers.splice(index, 1);
+    });
   }),
 }));
 
@@ -18,13 +27,16 @@ describe("logs store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     failListen = false;
-    for (const k of Object.keys(listeners)) delete listeners[k];
+    failCalls.clear();
+    listenCalls = 0;
+    unlistenCalls = 0;
+    for (const k of Object.keys(registered)) delete registered[k];
   });
 
   it("init 注册两个事件监听", async () => {
     const store = useLogsStore();
     await store.init();
-    expect(Object.keys(listeners).sort()).toEqual(["scoop-log", "scoop-task-end"]);
+    expect(Object.keys(registered).sort()).toEqual(["scoop-log", "scoop-task-end"]);
   });
 
   it("init 失败后可重试注册监听", async () => {
@@ -35,13 +47,34 @@ describe("logs store", () => {
     failListen = false;
     await store.init();
     expect(store.initialized).toBe(true);
-    expect(Object.keys(listeners).sort()).toEqual(["scoop-log", "scoop-task-end"]);
+    expect(Object.keys(registered).sort()).toEqual(["scoop-log", "scoop-task-end"]);
+  });
+
+  it("部分注册失败后重试不会重复注册监听", async () => {
+    failCalls.add(2);
+    const store = useLogsStore();
+    await expect(store.init()).rejects.toBeTruthy();
+    expect(store.initialized).toBe(false);
+    expect(unlistenCalls).toBe(1);
+    await store.init();
+    expect(store.initialized).toBe(true);
+    expect(registered["scoop-log"]).toHaveLength(1);
+    expect(registered["scoop-task-end"]).toHaveLength(1);
+    expect(listenCalls).toBe(4);
+  });
+
+  it("并发 init 只注册一次监听", async () => {
+    const store = useLogsStore();
+    await Promise.all([store.init(), store.init()]);
+    expect(listenCalls).toBe(2);
+    expect(registered["scoop-log"]).toHaveLength(1);
+    expect(registered["scoop-task-end"]).toHaveLength(1);
   });
 
   it("收到 scoop-log 追加行", async () => {
     const store = useLogsStore();
     await store.init();
-    listeners["scoop-log"]({ payload: { taskId: "t1", stream: "stdout", line: "hello" } });
+    registered["scoop-log"][0]({ payload: { taskId: "t1", stream: "stdout", line: "hello" } });
     expect(store.lines[store.lines.length - 1]).toMatchObject({ taskId: "t1", stream: "stdout", line: "hello" });
   });
 
@@ -50,7 +83,7 @@ describe("logs store", () => {
     await store.init();
     store.start("t1", "scoop --version");
     expect(store.running["t1"]).toBe(true);
-    listeners["scoop-task-end"]({ payload: { taskId: "t1", code: 0, success: true } });
+    registered["scoop-task-end"][0]({ payload: { taskId: "t1", code: 0, success: true } });
     expect(store.running["t1"]).toBe(false);
     expect(store.history[0]).toMatchObject({ taskId: "t1", label: "scoop --version", success: true });
   });

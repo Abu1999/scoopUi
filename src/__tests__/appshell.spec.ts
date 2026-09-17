@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => {
   const calls: string[] = [];
+  const failInit = { value: false };
   const commands = {
     getActiveRoot: vi.fn(async () => {
       calls.push("getActiveRoot");
@@ -24,8 +25,9 @@ const h = vi.hoisted(() => {
   };
   const init = vi.fn(async () => {
     calls.push("logs.init");
+    if (failInit.value) throw new Error("listen 失败");
   });
-  return { calls, commands, init };
+  return { calls, commands, init, failInit };
 });
 
 vi.mock("../api/commands", () => h.commands);
@@ -70,9 +72,26 @@ const stubs = {
 describe("AppShell 启动时序", () => {
   beforeEach(() => {
     h.calls.length = 0;
+    h.failInit.value = false;
   });
 
   it("按日志→根目录→应用→桶的顺序串行加载", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    mount(AppShell, { global: { plugins: [pinia], stubs } });
+    await flushPromises();
+    await flushPromises();
+    expect(h.calls).toEqual([
+      "logs.init",
+      "getActiveRoot",
+      "detectRoots",
+      "listInstalledApps",
+      "listBuckets",
+    ]);
+  });
+
+  it("日志初始化失败仍继续加载根目录、应用与桶", async () => {
+    h.failInit.value = true;
     const pinia = createPinia();
     setActivePinia(pinia);
     mount(AppShell, { global: { plugins: [pinia], stubs } });

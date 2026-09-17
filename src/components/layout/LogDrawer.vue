@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { NButton, useMessage } from "naive-ui";
 import { useLogsStore } from "../../stores/logs";
 import { useUiStore } from "../../stores/ui";
@@ -28,6 +28,10 @@ const logs = useLogsStore();
 const ui = useUiStore();
 const message = useMessage();
 const bodyEl = ref<HTMLElement | null>(null);
+
+onMounted(() => {
+  logs.init().catch(() => {});
+});
 
 const runningCount = computed(() => Object.values(logs.running).filter(Boolean).length);
 const lastRunningTask = computed(() => Object.keys(logs.running).find((k) => logs.running[k]) ?? null);

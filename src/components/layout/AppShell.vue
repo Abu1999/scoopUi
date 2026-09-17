@@ -40,8 +40,9 @@ const placeholders: Record<string, string> = {
 const placeholderTitle = computed(() => placeholders[ui.activePage] ?? "开发中");
 
 onMounted(async () => {
-  const logs = useLogsStore();
-  await logs.init();
+  await useLogsStore()
+    .init()
+    .catch(() => {});
   await useRootsStore().load();
   await useAppsStore().load();
   await useBucketsStore().load();

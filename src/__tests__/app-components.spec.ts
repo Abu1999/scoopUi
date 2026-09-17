@@ -6,7 +6,6 @@ import AppIcon from "../components/app/AppIcon.vue";
 import AppList from "../components/app/AppList.vue";
 import InstalledPage from "../pages/InstalledPage.vue";
 import SettingsPage from "../pages/SettingsPage.vue";
-import { avatarColor } from "../utils/avatar";
 import { useAppsStore } from "../stores/apps";
 import { useRootsStore } from "../stores/roots";
 import type { InstalledApp, RootInfo } from "../api/types";
@@ -16,8 +15,17 @@ const messageError = vi.hoisted(() => vi.fn());
 const listInstalledApps = vi.hoisted(() => vi.fn());
 const getScoopConfig = vi.hoisted(() => vi.fn());
 const runScoop = vi.hoisted(() => vi.fn());
+const otherCommands = vi.hoisted(() => ({
+  detectRoots: vi.fn(),
+  getActiveRoot: vi.fn(),
+  setActiveRoot: vi.fn(),
+  addRoot: vi.fn(),
+  listBuckets: vi.fn(),
+  cancelTask: vi.fn(),
+}));
 
 vi.mock("../api/commands", () => ({
+  ...otherCommands,
   listInstalledApps,
   getScoopConfig,
   runScoop,
@@ -58,13 +66,11 @@ const git: InstalledApp = {
 };
 
 describe("AppIcon", () => {
-  it("无图标时显示首字母与稳定背景色", () => {
+  it("无图标时显示首字母与固定背景色", () => {
     const wrapper = mount(AppIcon, { props: { name: "git" } });
     expect(wrapper.text()).toContain("G");
-    const probe = document.createElement("div");
-    probe.style.background = avatarColor("git");
     const style = wrapper.find(".icon").attributes("style") ?? "";
-    expect(style).toContain(probe.style.background);
+    expect(style.includes("#f0a020") || style.includes("rgb(240, 160, 32)")).toBe(true);
   });
 });
 

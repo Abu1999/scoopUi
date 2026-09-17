@@ -1,7 +1,7 @@
 use serde::Serialize;
 use tauri::State;
 
-use crate::commands::context;
+use crate::commands::{context, roots::resolve_active_root};
 use crate::domain::configfile;
 use crate::error::AppError;
 use crate::state::AppState;
@@ -13,15 +13,10 @@ pub struct ScoopConfig {
     pub values: serde_json::Value,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_scoop_config(state: State<'_, AppState>) -> Result<ScoopConfig, AppError> {
-    let root = state
-        .active_root
-        .lock()
-        .unwrap()
-        .clone()
-        .ok_or(AppError::NoRoot)?;
     let ctx = context();
+    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
     let resolved = configfile::resolve(&root, &ctx.user_config_home);
     Ok(ScoopConfig {
         file_path: resolved.path.display().to_string(),

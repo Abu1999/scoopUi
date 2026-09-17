@@ -13,6 +13,7 @@ fn local_root() -> Option<PathBuf> {
 }
 
 #[test]
+#[ignore = "需要真实 scoop 环境；用 cargo test -- --ignored 运行"]
 fn scans_real_environment() {
     let Some(root_path) = local_root() else {
         eprintln!("skip: 本机无有效 scoop 根目录");
@@ -35,6 +36,7 @@ fn scans_real_environment() {
 }
 
 #[test]
+#[ignore = "需要真实 scoop 环境；用 cargo test -- --ignored 运行"]
 fn runs_real_scoop_version() {
     let Some(root_path) = local_root() else {
         eprintln!("skip: 本机无有效 scoop 根目录");

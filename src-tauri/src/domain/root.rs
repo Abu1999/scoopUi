@@ -36,7 +36,7 @@ fn count_dirs(p: &Path) -> usize {
     }
 }
 
-fn normalized(p: &Path) -> String {
+pub fn normalized(p: &Path) -> String {
     p.to_string_lossy().trim_end_matches(['\\', '/']).to_lowercase()
 }
 
@@ -56,7 +56,7 @@ pub fn candidates(
     for p in known {
         list.push(Candidate { path: p.clone(), source: "settings" });
     }
-    list.push(Candidate { path: home.join("scoop"), source: "default" });
+    list.push(Candidate { path: crate::paths::default_root(home), source: "default" });
 
     let mut seen: Vec<String> = Vec::new();
     list.into_iter()
@@ -79,7 +79,7 @@ pub fn global_dir(
 ) -> PathBuf {
     env_global
         .or(config_global_path)
-        .unwrap_or_else(|| program_data.join("scoop"))
+        .unwrap_or_else(|| crate::paths::default_global_root(program_data))
 }
 
 pub fn info(path: &Path, source: &str, is_active: bool, global_dir: Option<&Path>) -> RootInfo {
@@ -89,7 +89,7 @@ pub fn info(path: &Path, source: &str, is_active: bool, global_dir: Option<&Path
         valid,
         source: source.to_string(),
         is_active,
-        app_count: if valid { count_dirs(&path.join("apps")) } else { 0 },
+        app_count: if valid { crate::domain::installed::scan(&path.join("apps")).len() } else { 0 },
         bucket_count: if valid { count_dirs(&path.join("buckets")) } else { 0 },
         has_portable_config: path.join("config.json").is_file(),
         global_dir: global_dir.map(|g| g.display().to_string()),
@@ -149,7 +149,15 @@ mod tests {
     fn info_reports_counts_and_validity() {
         let tmp = tempfile::tempdir().unwrap();
         let root = make_root(tmp.path());
-        std::fs::create_dir_all(root.join("apps").join("git")).unwrap();
+        let apps = root.join("apps");
+        for (name, install) in [("git", Some(r#"{}"#)), ("scoop", None)] {
+            let current = apps.join(name).join("current");
+            std::fs::create_dir_all(&current).unwrap();
+            std::fs::write(current.join("manifest.json"), r#"{"version":"1.0"}"#).unwrap();
+            if let Some(i) = install {
+                std::fs::write(current.join("install.json"), i).unwrap();
+            }
+        }
         std::fs::create_dir_all(root.join("buckets").join("main")).unwrap();
         let i = info(&root, "test", true, None);
         assert!(i.valid);

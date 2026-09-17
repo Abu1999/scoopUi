@@ -1,14 +1,16 @@
 <template>
-  <n-config-provider :theme-overrides="{ common: { primaryColor: '#2080f0' } }">
+  <n-config-provider :theme-overrides="themeOverrides">
     <n-message-provider>
-      <div style="padding: 24px; font-family: system-ui, sans-serif">
-        <h2>ScoopUI</h2>
-        <p>环境就绪，进入 M1 开发。</p>
-      </div>
+      <AppShell />
     </n-message-provider>
   </n-config-provider>
 </template>
 
 <script setup lang="ts">
 import { NConfigProvider, NMessageProvider } from "naive-ui";
+import AppShell from "./components/layout/AppShell.vue";
+
+const themeOverrides = {
+  common: { primaryColor: "#2080f0", primaryColorHover: "#4098fc" },
+};
 </script>

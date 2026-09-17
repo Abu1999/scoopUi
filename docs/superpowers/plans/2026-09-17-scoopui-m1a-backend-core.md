@@ -18,6 +18,7 @@
 - 依赖纪律：新增运行时依赖仅 `thiserror`；`tempfile` 仅 dev-dependencies
 - 提交信息中文，遵循 `feat:` / `test:` / `chore:` 前缀
 - 已实测事实（实现必须按此）：已装应用数据源 = `apps/<name>/current/{manifest.json,install.json}`，`scoop` 自身无 install.json 会被自然跳过；`current` 是 junction，直接按路径读取即可；bucket 的 git 远程在 `<bucket>/.git/config` 的 `[remote "origin"] url` 行；`install.json` 字段为 `bucket/architecture/hold/updated` 且都可缺失；脚本路径 `<root>\apps\scoop\current\bin\scoop.ps1`
+- 验证证据采集：`cargo test <过滤词>` 的输出必须用 `grep -E "test result|running|^test "` 过滤后再取证；不要用 `tail`（lib target 的结果会被 main.rs 的空结果截掉，导致 RED/GREEN 证据失真）
 - 初始 BASE 提交：2513296
 
 ---

@@ -1,3 +1,4 @@
+pub mod domain;
 mod error;
 mod paths;
 mod settings;

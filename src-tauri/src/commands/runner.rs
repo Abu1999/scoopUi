@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -23,19 +25,31 @@ struct EndPayload {
     success: bool,
 }
 
-#[tauri::command(async)]
-pub fn run_scoop(
-    app: AppHandle,
-    state: State<'_, AppState>,
+pub(crate) fn ensure_idle(tasks: &HashMap<String, u32>) -> Result<(), AppError> {
+    if tasks.is_empty() {
+        Ok(())
+    } else {
+        Err(AppError::Other("已有任务正在运行，请等待完成或取消后再试".to_string()))
+    }
+}
+
+pub(crate) fn spawn_task(
+    app: &AppHandle,
+    state: &AppState,
     args: Vec<String>,
     task_id: String,
 ) -> Result<(), AppError> {
     let ctx = context();
-    let root_path = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root_path = resolve_active_root(&ctx, state).ok_or(AppError::NoRoot)?;
     let global = root::global_dir(ctx.env_global.clone(), ctx.config_global_path(), &ctx.program_data);
     let cmd = scoopcmd::build(&root_path, Some(&global), &args)?;
-    let spawned = scoopcmd::spawn(&cmd)?;
-    state.tasks.lock().unwrap().insert(task_id.clone(), spawned.pid());
+    let spawned = {
+        let mut tasks = state.tasks.lock().unwrap();
+        ensure_idle(&tasks)?;
+        let spawned = scoopcmd::spawn(&cmd)?;
+        tasks.insert(task_id.clone(), spawned.pid());
+        spawned
+    };
 
     let app_handle = app.clone();
     let task = task_id.clone();
@@ -65,6 +79,16 @@ pub fn run_scoop(
         }
     });
     Ok(())
+}
+
+#[tauri::command(async)]
+pub fn run_scoop(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    args: Vec<String>,
+    task_id: String,
+) -> Result<(), AppError> {
+    spawn_task(&app, &state, args, task_id)
 }
 
 pub(crate) fn cancel_task_inner(state: &AppState, task_id: &str) -> bool {
@@ -122,6 +146,15 @@ mod tests {
         })
         .unwrap();
         assert_eq!(v, serde_json::json!({"taskId": "t1", "code": null, "success": false}));
+    }
+
+    #[test]
+    fn ensure_idle_rejects_when_task_running() {
+        let mut tasks = std::collections::HashMap::new();
+        assert!(ensure_idle(&tasks).is_ok());
+        tasks.insert("t".to_string(), 1234);
+        let err = ensure_idle(&tasks).unwrap_err();
+        assert!(err.to_string().contains("已有任务正在运行"));
     }
 
     #[test]

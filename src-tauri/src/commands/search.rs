@@ -9,50 +9,59 @@ use crate::domain::index::{self, PackageEntry};
 use crate::error::AppError;
 use crate::state::{AppState, IndexCache};
 
-pub(crate) fn ensure_index(
-    state: &AppState,
-    root: &Path,
-    builder: impl FnOnce(&Path) -> Vec<PackageEntry>,
-) -> Arc<Vec<PackageEntry>> {
-    {
-        let guard = state.index.lock().unwrap();
-        if let Some(cache) = guard.as_ref() {
-            if cache.root == root {
-                return cache.entries.clone();
-            }
-        }
-    }
-    let entries = Arc::new(builder(root));
-    let mut guard = state.index.lock().unwrap();
-    *guard = Some(IndexCache {
-        root: root.to_path_buf(),
-        entries: entries.clone(),
-    });
-    entries
+pub(crate) fn cached_index(state: &AppState, root: &Path) -> Option<Arc<Vec<PackageEntry>>> {
+    let guard = state.index.lock().unwrap();
+    guard
+        .as_ref()
+        .filter(|cache| cache.root == root)
+        .map(|cache| cache.entries.clone())
 }
 
-#[tauri::command(async)]
-pub fn search_packages(
+pub(crate) fn store_index(state: &AppState, root: &Path, entries: Arc<Vec<PackageEntry>>) {
+    *state.index.lock().unwrap() = Some(IndexCache {
+        root: root.to_path_buf(),
+        entries,
+    });
+}
+
+#[tauri::command]
+pub async fn search_packages(
     state: State<'_, AppState>,
     query: String,
     limit: Option<usize>,
 ) -> Result<Vec<PackageEntry>, AppError> {
     let ctx = context();
     let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
-    let entries = ensure_index(&state, &root, |r| index::build(&r.join("buckets")));
+    let entries = match cached_index(&state, &root) {
+        Some(entries) => entries,
+        None => {
+            let build_root = root.clone();
+            let built = tauri::async_runtime::spawn_blocking(move || {
+                Arc::new(index::build(&build_root.join("buckets")))
+            })
+            .await
+            .map_err(|e| AppError::Other(format!("索引构建失败: {e}")))?;
+            store_index(&state, &root, built.clone());
+            built
+        }
+    };
     Ok(index::search(&entries, &query, limit.unwrap_or(50)))
 }
 
-#[tauri::command(async)]
-pub fn refresh_package_index(state: State<'_, AppState>) -> Result<usize, AppError> {
+#[tauri::command]
+pub async fn refresh_package_index(
+    state: State<'_, AppState>,
+) -> Result<usize, AppError> {
     let ctx = context();
     let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
-    let entries = index::build(&root.join("buckets"));
-    let count = entries.len();
-    *state.index.lock().unwrap() = Some(IndexCache {
-        root: root.clone(),
-        entries: Arc::new(entries),
-    });
+    let build_root = root.clone();
+    let built = tauri::async_runtime::spawn_blocking(move || {
+        Arc::new(index::build(&build_root.join("buckets")))
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("索引构建失败: {e}")))?;
+    let count = built.len();
+    store_index(&state, &root, built);
     Ok(count)
 }
 
@@ -60,7 +69,7 @@ pub fn refresh_package_index(state: State<'_, AppState>) -> Result<usize, AppErr
 mod tests {
     use super::*;
     use crate::domain::index::PackageEntry;
-    use crate::state::{AppState, IndexCache};
+    use crate::state::AppState;
     use std::path::PathBuf;
     use std::sync::Arc;
 
@@ -80,13 +89,12 @@ mod tests {
     #[test]
     fn index_cache_reused_for_same_root() {
         let state = AppState::default();
-        *state.index.lock().unwrap() = Some(IndexCache {
-            root: PathBuf::from("C:\\scoop"),
-            entries: Arc::new(vec![entry("git")]),
-        });
-        let got = ensure_index(&state, &PathBuf::from("C:\\scoop"), |_| {
-            vec![entry("other")]
-        });
+        store_index(
+            &state,
+            &PathBuf::from("C:\\scoop"),
+            Arc::new(vec![entry("git")]),
+        );
+        let got = cached_index(&state, &PathBuf::from("C:\\scoop")).expect("同 root 应命中缓存");
         assert_eq!(got.len(), 1);
         assert_eq!(got[0].name, "git");
     }
@@ -94,11 +102,10 @@ mod tests {
     #[test]
     fn index_rebuilt_when_root_changes() {
         let state = AppState::default();
-        *state.index.lock().unwrap() = Some(IndexCache {
-            root: PathBuf::from("C:\\a"),
-            entries: Arc::new(vec![entry("old")]),
-        });
-        let got = ensure_index(&state, &PathBuf::from("C:\\b"), |_| vec![entry("new")]);
+        store_index(&state, &PathBuf::from("C:\\a"), Arc::new(vec![entry("old")]));
+        assert!(cached_index(&state, &PathBuf::from("C:\\b")).is_none());
+        store_index(&state, &PathBuf::from("C:\\b"), Arc::new(vec![entry("new")]));
+        let got = cached_index(&state, &PathBuf::from("C:\\b")).expect("新 root 应命中新缓存");
         assert_eq!(got[0].name, "new");
     }
 }

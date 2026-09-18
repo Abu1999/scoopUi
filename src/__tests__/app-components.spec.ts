@@ -113,6 +113,14 @@ describe("AppList", () => {
     await wrapper.find(".row").trigger("click");
     expect(wrapper.emitted("select")?.[0]).toEqual(["git"]);
   });
+
+  it("应用带 homepage 时列表展示抓取到的图标", async () => {
+    fetchIcon.mockResolvedValue("data:image/png;base64,AA==");
+    const wrapper = mount(AppList, { props: { apps: [git], selected: null } });
+    await flushPromises();
+    expect(fetchIcon).toHaveBeenCalledWith("https://gitforwindows.org");
+    expect(wrapper.find("img").attributes("src")).toBe("data:image/png;base64,AA==");
+  });
 });
 
 describe("AppDetail", () => {

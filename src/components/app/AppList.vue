@@ -8,7 +8,7 @@
       :class="{ active: app.name === selected }"
       @click="$emit('select', app.name)"
     >
-      <AppIcon :name="app.name" :size="28" />
+      <AppIcon :name="app.name" :size="28" :source="app.icon ?? app.homepage" />
       <div class="info">
         <div class="name">
           {{ app.name }}

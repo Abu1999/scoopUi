@@ -3,7 +3,7 @@
     <div v-if="!app" class="empty">选择一个应用查看详情</div>
     <template v-else>
       <div class="head">
-        <AppIcon :name="app.name" :size="64" />
+        <AppIcon :name="app.name" :size="64" :source="app.icon ?? app.homepage" />
         <div>
           <div class="title">
             {{ app.name }}

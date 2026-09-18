@@ -22,6 +22,9 @@ const h = vi.hoisted(() => {
       calls.push("listBuckets");
       return [];
     }),
+    searchPackages: vi.fn(async () => []),
+    refreshPackageIndex: vi.fn(async () => 0),
+    fetchIcon: vi.fn(async () => null),
   };
   const init = vi.fn(async () => {
     calls.push("logs.init");
@@ -58,12 +61,14 @@ vi.mock("../stores/buckets", () => ({
 }));
 
 import AppShell from "../components/layout/AppShell.vue";
+import { useUiStore } from "../stores/ui";
 
 const stubs = {
   SideBar: true,
   TopBar: true,
   LogDrawer: true,
   InstalledPage: true,
+  StorePage: true,
   BucketsPage: true,
   SettingsPage: true,
   PlaceholderPage: true,
@@ -104,5 +109,13 @@ describe("AppShell 启动时序", () => {
       "listInstalledApps",
       "listBuckets",
     ]);
+  });
+
+  it("商店页渲染 StorePage 而非占位", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useUiStore().setPage("store");
+    const wrapper = mount(AppShell, { global: { plugins: [pinia], stubs } });
+    expect(wrapper.find("store-page-stub").exists()).toBe(true);
   });
 });

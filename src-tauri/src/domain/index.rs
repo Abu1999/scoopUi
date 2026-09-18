@@ -76,20 +76,22 @@ pub fn search(entries: &[PackageEntry], query: &str, limit: usize) -> Vec<Packag
         .filter_map(|e| {
             let name = e.name.to_lowercase();
             let rank = if q.is_empty() {
-                3
+                4
             } else if name == q {
                 0
             } else if name.starts_with(&q) {
                 1
             } else if name.contains(&q) {
                 2
+            } else if e.bucket.to_lowercase() == q {
+                3
             } else if e
                 .description
                 .as_deref()
                 .map(|d| d.to_lowercase().contains(&q))
                 .unwrap_or(false)
             {
-                3
+                4
             } else {
                 return None;
             };
@@ -177,5 +179,47 @@ mod tests {
         assert_eq!(r3[0].name, "7zip");
 
         assert!(search(&entries, "nomatchxyz", 10).is_empty());
+    }
+
+    #[test]
+    fn search_matches_bucket_name_exactly() {
+        let mk = |name: &str, bucket: &str, desc: Option<&str>| PackageEntry {
+            name: name.to_string(),
+            bucket: bucket.to_string(),
+            version: "1".to_string(),
+            description: desc.map(|s| s.to_string()),
+            homepage: None,
+            license: None,
+            icon: None,
+            deprecated: false,
+        };
+        let entries = vec![
+            mk("java-app", "extras", None),
+            mk("temurin17-jdk", "java", Some("Eclipse Temurin runtime")),
+            mk("zulu17-jdk", "java", Some("Zulu is certified build of OpenJDK")),
+            mk("nodejs", "main", Some("JavaScript runtime")),
+        ];
+        let hits = search(&entries, "java", 10);
+        let names: Vec<&str> = hits.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, vec!["java-app", "temurin17-jdk", "zulu17-jdk", "nodejs"]);
+        let upper_hits = search(&entries, "JAVA", 10);
+        let upper: Vec<&str> = upper_hits.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(upper, names);
+    }
+
+    #[test]
+    fn bucket_match_is_exact_not_prefix() {
+        let mk = |name: &str, bucket: &str| PackageEntry {
+            name: name.to_string(),
+            bucket: bucket.to_string(),
+            version: "1".to_string(),
+            description: None,
+            homepage: None,
+            license: None,
+            icon: None,
+            deprecated: false,
+        };
+        let entries = vec![mk("zulu17-jdk", "java")];
+        assert!(search(&entries, "javat", 10).is_empty());
     }
 }

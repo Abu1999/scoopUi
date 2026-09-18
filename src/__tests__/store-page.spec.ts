@@ -168,6 +168,34 @@ describe("StorePage", () => {
     expect(mocks.searchPackages).toHaveBeenLastCalledWith("", 100);
   });
 
+  it("不足以滚动时切换卡片视图会自动继续加载", async () => {
+    mocks.searchPackages.mockResolvedValueOnce(list(50));
+    mocks.searchPackages.mockResolvedValueOnce(list(60));
+    const wrapper = mount(StorePage);
+    await flushPromises();
+    expect(mocks.searchPackages).toHaveBeenCalledTimes(1);
+    const scroller = wrapper.find(".results").element as HTMLElement;
+    Object.defineProperty(scroller, "clientHeight", { value: 600, configurable: true });
+    Object.defineProperty(scroller, "scrollHeight", { value: 500, configurable: true });
+    const gridButton = wrapper.findAll("button").find((b) => b.text().includes("卡片"));
+    await gridButton!.trigger("click");
+    await flushPromises();
+    expect(mocks.searchPackages).toHaveBeenLastCalledWith("", 100);
+  });
+
+  it("距底部尚远时不触发加载下一页", async () => {
+    mocks.searchPackages.mockResolvedValueOnce(list(50));
+    const wrapper = mount(StorePage);
+    await flushPromises();
+    const scroller = wrapper.find(".results").element as HTMLElement;
+    Object.defineProperty(scroller, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(scroller, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(scroller, "scrollTop", { value: 100, configurable: true, writable: true });
+    await wrapper.find(".results").trigger("scroll");
+    await flushPromises();
+    expect(mocks.searchPackages).toHaveBeenCalledTimes(1);
+  });
+
   it("结果少于页大小时显示已全部加载", async () => {
     mocks.searchPackages.mockResolvedValue([pkg("git"), pkg("git-lfs")]);
     const wrapper = mount(StorePage);

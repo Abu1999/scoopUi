@@ -93,6 +93,19 @@ describe("packages store", () => {
     expect(store.refreshing).toBe(false);
   });
 
+  it("refresh 保留当前已加载的 limit", async () => {
+    mocks.searchPackages.mockResolvedValueOnce(list(50));
+    const store = usePackagesStore();
+    await store.search("git");
+    mocks.searchPackages.mockResolvedValueOnce(list(60));
+    await store.loadMore();
+    mocks.refreshPackageIndex.mockResolvedValue(4955);
+    mocks.searchPackages.mockResolvedValueOnce(list(60));
+    await store.refresh();
+    expect(mocks.searchPackages).toHaveBeenLastCalledWith("git", 100);
+    expect(store.indexCount).toBe(4955);
+  });
+
   it("loadMore 增大 limit 并保留已加载结果与选中项", async () => {
     mocks.searchPackages.mockResolvedValueOnce(list(50));
     const store = usePackagesStore();

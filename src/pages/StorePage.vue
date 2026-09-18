@@ -25,7 +25,7 @@
       <div v-if="pkgs.results.length === 0 && !pkgs.error" class="hint">
         {{ pkgs.loading ? "搜索中…" : "没有匹配的应用" }}
       </div>
-      <div v-else-if="pkgs.results.length > 0" class="results" :class="view" @scroll="onScroll">
+      <div v-else-if="pkgs.results.length > 0" ref="resultsEl" class="results" :class="view" @scroll="onScroll">
         <template v-if="view === 'list'">
           <div
             v-for="p in pkgs.results"
@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { NAlert, NButton, NButtonGroup, NInput, NTag } from "naive-ui";
 import AppIcon from "../components/app/AppIcon.vue";
 import PackageDetail from "../components/store/PackageDetail.vue";
@@ -99,12 +99,25 @@ function onScroll(e: Event) {
   }
 }
 
+const resultsEl = ref<HTMLElement | null>(null);
+
+async function ensureFilled() {
+  await nextTick();
+  const el = resultsEl.value;
+  if (!el || pkgs.loading || pkgs.loadedAll || pkgs.results.length === 0) return;
+  if (el.clientHeight > 0 && el.scrollHeight <= el.clientHeight) {
+    pkgs.loadMore();
+  }
+}
+
 watch(
   () => roots.active?.path,
   () => {
     pkgs.search(pkgs.query);
   },
 );
+
+watch([() => pkgs.results.length, view], ensureFilled);
 
 onMounted(() => {
   pkgs.search(pkgs.query);

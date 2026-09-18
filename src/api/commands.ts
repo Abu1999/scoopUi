@@ -40,3 +40,4 @@ export const bucketRemove = (name: string, taskId: string) =>
   invoke<void>("bucket_remove", { name, taskId });
 export const runMaintenance = (op: string, taskId: string) =>
   invoke<void>("run_maintenance", { op, taskId });
+export const listKnownBuckets = () => invoke<string[]>("list_known_buckets");

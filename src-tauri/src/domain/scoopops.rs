@@ -111,6 +111,24 @@ pub fn maintenance_args(op: &str) -> Result<Vec<String>, AppError> {
     Ok(args.into_iter().map(str::to_string).collect())
 }
 
+pub fn parse_known_buckets(output: &str) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    for line in output.lines() {
+        let name = line.trim().to_ascii_lowercase();
+        if name.is_empty()
+            || !name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
+            continue;
+        }
+        if !names.contains(&name) {
+            names.push(name);
+        }
+    }
+    names
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -197,5 +215,11 @@ mod tests {
         assert_eq!(maintenance_args("reset_all").unwrap(), v(&["reset", "-a"]));
         let err = maintenance_args("nuke").unwrap_err();
         assert!(err.to_string().contains("未知的维护操作"));
+    }
+
+    #[test]
+    fn parses_known_buckets_filtering_noise() {
+        let out = "main\n extras \n\nJAVA\nmain\nWarning: something\nphp\nbad name\n";
+        assert_eq!(parse_known_buckets(out), vec!["main", "extras", "java", "php"]);
     }
 }

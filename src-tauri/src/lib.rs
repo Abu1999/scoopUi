@@ -20,6 +20,7 @@ pub fn run() {
             commands::roots::add_root,
             commands::apps::list_installed_apps,
             commands::buckets::list_buckets,
+            commands::buckets::list_known_buckets,
             commands::config::get_scoop_config,
             commands::runner::run_scoop,
             commands::runner::cancel_task,

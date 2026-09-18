@@ -15,6 +15,7 @@ import {
   installPackage,
   listBuckets,
   listInstalledApps,
+  listKnownBuckets,
   refreshPackageIndex,
   runMaintenance,
   runScoop,
@@ -117,5 +118,10 @@ describe("commands 包装", () => {
 
     await runMaintenance("checkup", "t-2");
     expect(invokeMock).toHaveBeenLastCalledWith("run_maintenance", { op: "checkup", taskId: "t-2" });
+  });
+
+  it("M3c 已知桶命令名符合后端契约", async () => {
+    await listKnownBuckets();
+    expect(invokeMock).toHaveBeenLastCalledWith("list_known_buckets", undefined);
   });
 });

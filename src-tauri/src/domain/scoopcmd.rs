@@ -242,6 +242,25 @@ pub fn stream_child(
     Ok(status.code())
 }
 
+pub fn capture(cmd: &ScoopCommand) -> Result<String, AppError> {
+    let spawned = spawn(cmd)?;
+    let collected = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let sink = collected.clone();
+    let code = stream_child(spawned, move |l| {
+        if l.stream == "stdout" {
+            if let Ok(mut s) = sink.lock() {
+                s.push_str(&l.line);
+                s.push('\n');
+            }
+        }
+    })?;
+    if code != Some(0) {
+        let code_text = code.map(|c| c.to_string()).unwrap_or_else(|| "未知".to_string());
+        return Err(AppError::Other(format!("命令执行失败（退出码 {code_text}）：{}", cmd.display)));
+    }
+    Ok(collected.lock().map(|s| s.clone()).unwrap_or_default())
+}
+
 pub fn kill_tree(pid: u32) -> bool {
     let mut c = Command::new("taskkill.exe");
     c.args(["/T", "/F", "/PID", &pid.to_string()])
@@ -432,5 +451,33 @@ mod tests {
         let start = std::time::Instant::now();
         let _ = spawned.child.wait();
         assert!(start.elapsed().as_secs() < 10);
+    }
+
+    #[test]
+    fn capture_collects_stdout_only() {
+        let cmd = ScoopCommand {
+            program: "cmd.exe".to_string(),
+            args: vec![
+                "/C".to_string(),
+                "(echo hello & echo warn 1>&2)".to_string(),
+            ],
+            envs: vec![],
+            display: "capture-test".to_string(),
+        };
+        let out = capture(&cmd).unwrap();
+        assert!(out.contains("hello"));
+        assert!(!out.contains("warn"));
+    }
+
+    #[test]
+    fn capture_fails_on_nonzero_exit() {
+        let cmd = ScoopCommand {
+            program: "cmd.exe".to_string(),
+            args: vec!["/C".to_string(), "exit /b 3".to_string()],
+            envs: vec![],
+            display: "capture-fail".to_string(),
+        };
+        let err = capture(&cmd).unwrap_err();
+        assert!(err.to_string().contains("退出码"));
     }
 }

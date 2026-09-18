@@ -130,6 +130,7 @@ mod tests {
         Context {
             home: base.join("home"),
             appdata: base.join("appdata"),
+            local_appdata: base.join("localappdata"),
             program_data: base.join("programdata"),
             user_config_home: base.join("home").join(".config"),
             env_scoop: None,

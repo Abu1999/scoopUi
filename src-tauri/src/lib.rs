@@ -24,7 +24,8 @@ pub fn run() {
             commands::runner::run_scoop,
             commands::runner::cancel_task,
             commands::search::search_packages,
-            commands::search::refresh_package_index
+            commands::search::refresh_package_index,
+            commands::icons::fetch_icon
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

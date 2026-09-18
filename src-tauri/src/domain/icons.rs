@@ -134,6 +134,78 @@ pub fn default_proxy() -> &'static str {
     "https://scoop.201704.xyz"
 }
 
+pub fn fetch_remote(url: &str) -> Option<(Vec<u8>, String)> {
+    const MAX: usize = 512 * 1024;
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(8))
+        .user_agent("ScoopUI/0.1")
+        .build()
+        .ok()?;
+    let resp = client.get(url).send().ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let ct = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    if !is_image_content_type(&ct) {
+        return None;
+    }
+    let bytes = resp.bytes().ok()?.to_vec();
+    if bytes.len() > MAX {
+        return None;
+    }
+    Some((bytes, ct))
+}
+
+pub(crate) fn resolve_with<F>(
+    source: &str,
+    cache_dir: &Path,
+    proxy: Option<&str>,
+    mut fetch: F,
+) -> Option<String>
+where
+    F: FnMut(&str) -> Option<(Vec<u8>, String)>,
+{
+    let candidates = favicon_candidates(source);
+    if candidates.is_empty() {
+        return None;
+    }
+    if is_miss_fresh(cache_dir, source, Duration::from_secs(7 * 24 * 3600)) {
+        return None;
+    }
+    if let Some((bytes, mime)) = load_icon(cache_dir, source) {
+        return Some(to_data_url(&bytes, &mime));
+    }
+    for candidate in candidates {
+        let effective = rewrite_with_proxy(&candidate, proxy);
+        if let Some((bytes, mime)) = fetch(&effective) {
+            if save_icon(cache_dir, source, &bytes, &mime).is_err() {
+                return None;
+            }
+            return Some(to_data_url(&bytes, &mime));
+        }
+    }
+    let _ = mark_miss(cache_dir, source);
+    None
+}
+
+pub fn resolve_icon(source: &str, cache_dir: &Path, proxy: Option<&str>) -> Option<String> {
+    resolve_with(source, cache_dir, proxy, fetch_remote)
+}
+
+pub fn to_data_url(bytes: &[u8], mime: &str) -> String {
+    use base64::Engine;
+    format!(
+        "data:{};base64,{}",
+        mime,
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,5 +291,58 @@ mod tests {
         assert_eq!(k1, cache_key("https://a/b"));
         assert_ne!(k1, cache_key("https://a/c"));
         assert!(k1.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn resolve_uses_cache_before_network() {
+        let tmp = tempfile::tempdir().unwrap();
+        let source = "https://example.com";
+        save_icon(tmp.path(), source, &[1, 2, 3], "image/png").unwrap();
+        let out = resolve_with(source, tmp.path(), None, |_| {
+            panic!("fetch must not be called when cache hits")
+        });
+        assert!(out.unwrap().starts_with("data:image/png;base64,"));
+    }
+
+    #[test]
+    fn resolve_negative_cache_blocks_fetch() {
+        let tmp = tempfile::tempdir().unwrap();
+        let source = "https://example.com";
+        mark_miss(tmp.path(), source).unwrap();
+        let out = resolve_with(source, tmp.path(), None, |_| {
+            panic!("fetch must not be called while miss is fresh")
+        });
+        assert!(out.is_none());
+    }
+
+    #[test]
+    fn resolve_fetch_failure_marks_miss_and_returns_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        let source = "https://example.com";
+        let out = resolve_with(source, tmp.path(), None, |_| None);
+        assert!(out.is_none());
+        assert!(is_miss_fresh(tmp.path(), source, Duration::from_secs(7 * 24 * 3600)));
+    }
+
+    #[test]
+    fn resolve_fetch_success_saves_and_reloads_from_cache() {
+        let tmp = tempfile::tempdir().unwrap();
+        let source = "https://example.com";
+        let first = resolve_with(source, tmp.path(), None, |url| {
+            assert_eq!(url, "https://example.com/favicon.ico");
+            Some((vec![0u8], "image/png".to_string()))
+        })
+        .unwrap();
+        assert!(first.starts_with("data:image/png;base64,"));
+        assert!(load_icon(tmp.path(), source).is_some());
+        let second = resolve_with(source, tmp.path(), None, |_| {
+            panic!("fetch must not be called after successful save")
+        });
+        assert_eq!(second.unwrap(), first);
+    }
+
+    #[test]
+    fn to_data_url_encodes_base64() {
+        assert_eq!(to_data_url(&[0u8], "image/png"), "data:image/png;base64,AA==");
     }
 }

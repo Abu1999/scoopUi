@@ -6,3 +6,4 @@ pub mod installed;
 pub mod manifest;
 pub mod root;
 pub mod scoopcmd;
+pub mod scoopops;

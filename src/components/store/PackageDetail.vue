@@ -26,19 +26,66 @@
         <n-descriptions-item v-if="pkg.license" label="许可证">{{ pkg.license }}</n-descriptions-item>
       </n-descriptions>
 
-      <div class="install-hint">安装功能将在后续版本提供</div>
+      <div class="install">
+        <div class="install-row">
+          <n-input v-model:value="version" size="small" placeholder="版本（留空 = 最新）" class="version" />
+          <n-checkbox v-model:checked="globalInstall">全局安装</n-checkbox>
+        </div>
+        <div class="install-row">
+          <n-button type="primary" size="small" :disabled="busy" @click="doInstall">安装</n-button>
+          <span class="install-source">
+            来自 {{ pkg.bucket }} 桶<span v-if="globalInstall">；全局安装可能需要管理员权限</span>
+          </span>
+        </div>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { NButton, NDescriptions, NDescriptionsItem, NTag, useMessage } from "naive-ui";
+import { computed, ref } from "vue";
+import {
+  NButton,
+  NCheckbox,
+  NDescriptions,
+  NDescriptionsItem,
+  NInput,
+  NTag,
+  useMessage,
+} from "naive-ui";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import AppIcon from "../app/AppIcon.vue";
 import type { PackageEntry } from "../../api/types";
+import { installPackage } from "../../api/commands";
+import { useAppsStore } from "../../stores/apps";
+import { useLogsStore } from "../../stores/logs";
+import { useUiStore } from "../../stores/ui";
+import { runTask } from "../../utils/tasks";
 
 const props = defineProps<{ pkg: PackageEntry | null }>();
 const message = useMessage();
+const apps = useAppsStore();
+const logs = useLogsStore();
+const ui = useUiStore();
+const version = ref("");
+const globalInstall = ref(false);
+const busy = computed(() => logs.busy);
+
+async function doInstall() {
+  if (!props.pkg) return;
+  const pkg = props.pkg;
+  const ver = version.value.trim() === "" ? null : version.value.trim();
+  ui.logDrawerOpen = true;
+  const record = await runTask(`安装 ${pkg.name}`, (taskId) =>
+    installPackage(pkg.name, pkg.bucket, ver, globalInstall.value, taskId),
+  );
+  if (record.success) {
+    message.success(`已安装 ${pkg.name}`);
+    await apps.load();
+  } else {
+    message.error(`安装失败（退出码 ${record.code ?? "未知"}），详见任务日志`);
+  }
+}
 
 async function openHomepage() {
   if (!props.pkg?.homepage) return;
@@ -85,10 +132,23 @@ async function openHomepage() {
 .fields {
   margin-top: 6px;
 }
-.install-hint {
+.install {
   margin-top: 20px;
   padding-top: 12px;
   border-top: 1px solid #efeff5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.install-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.version {
+  width: 180px;
+}
+.install-source {
   color: #999;
   font-size: 12px;
 }

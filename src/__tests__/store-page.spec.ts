@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   searchPackages: vi.fn(),
   refreshPackageIndex: vi.fn(),
   fetchIcon: vi.fn().mockResolvedValue(null),
+  installPackage: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../api/commands", () => mocks);
 
@@ -39,6 +40,7 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 
 import StorePage from "../pages/StorePage.vue";
 import type { PackageEntry } from "../api/types";
+import { useLogsStore } from "../stores/logs";
 import { useRootsStore } from "../stores/roots";
 
 function pkg(name: string, extra: Partial<PackageEntry> = {}): PackageEntry {
@@ -201,5 +203,45 @@ describe("StorePage", () => {
     const wrapper = mount(StorePage);
     await flushPromises();
     expect(wrapper.text()).toContain("已显示全部 2 条");
+  });
+
+  it("安装按钮调用 installPackage 并在成功后刷新已安装列表", async () => {
+    mocks.searchPackages.mockResolvedValue([pkg("git", { description: "git" })]);
+    const wrapper = mount(StorePage);
+    await flushPromises();
+    const button = wrapper.findAll("button").find((b) => b.text().includes("安装"));
+    expect(button).toBeTruthy();
+    await button!.trigger("click");
+    await flushPromises();
+    expect(mocks.installPackage).toHaveBeenCalledWith("git", "main", null, false, expect.any(String));
+    const taskId = mocks.installPackage.mock.calls[0][4];
+    useLogsStore().end({ taskId, code: 0, success: true });
+    await flushPromises();
+    expect(mocks.listInstalledApps).toHaveBeenCalled();
+  });
+
+  it("版本与全局选项传入安装命令", async () => {
+    mocks.searchPackages.mockResolvedValue([pkg("git")]);
+    const wrapper = mount(StorePage);
+    await flushPromises();
+    await wrapper.find('input[placeholder="版本（留空 = 最新）"]').setValue("2.7.0");
+    await wrapper.find('[role="checkbox"]').trigger("click");
+    const button = wrapper.findAll("button").find((b) => b.text().includes("安装"));
+    await button!.trigger("click");
+    await flushPromises();
+    expect(mocks.installPackage).toHaveBeenCalledWith("git", "main", "2.7.0", true, expect.any(String));
+  });
+
+  it("安装失败提示错误", async () => {
+    mocks.searchPackages.mockResolvedValue([pkg("git")]);
+    const wrapper = mount(StorePage);
+    await flushPromises();
+    const button = wrapper.findAll("button").find((b) => b.text().includes("安装"));
+    await button!.trigger("click");
+    await flushPromises();
+    const taskId = mocks.installPackage.mock.calls[0][4];
+    useLogsStore().end({ taskId, code: 1, success: false });
+    await flushPromises();
+    expect(messageError).toHaveBeenCalledWith("安装失败（退出码 1），详见任务日志");
   });
 });

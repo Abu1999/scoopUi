@@ -18,6 +18,16 @@
       <div class="actions">
         <n-button v-if="app.homepage" size="small" @click="openHomepage">打开主页</n-button>
         <n-button size="small" @click="openDir">打开安装目录</n-button>
+        <n-button size="small" :disabled="busy" @click="doUpdate">更新</n-button>
+        <n-popconfirm @positive-click="doUninstall">
+          <template #trigger>
+            <n-button size="small" type="error" :disabled="busy">卸载</n-button>
+          </template>
+          确定卸载 {{ app.name }}？程序文件将被删除（持久化数据保留）。
+        </n-popconfirm>
+        <n-button size="small" :disabled="busy" @click="toggleHold">
+          {{ app.hold ? "解除锁定" : "锁定" }}
+        </n-button>
       </div>
 
       <n-descriptions :column="1" size="small" label-placement="left" class="fields">
@@ -39,13 +49,59 @@
 </template>
 
 <script setup lang="ts">
-import { NButton, NDescriptions, NDescriptionsItem, NTag, useMessage } from "naive-ui";
+import { computed } from "vue";
+import { NButton, NDescriptions, NDescriptionsItem, NPopconfirm, NTag, useMessage } from "naive-ui";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import AppIcon from "./AppIcon.vue";
 import type { InstalledApp } from "../../api/types";
+import { setHold, uninstallPackage, updatePackage } from "../../api/commands";
+import { useAppsStore } from "../../stores/apps";
+import { useLogsStore } from "../../stores/logs";
+import { useUiStore } from "../../stores/ui";
+import { runTask } from "../../utils/tasks";
+import type { TaskRecord } from "../../stores/logs";
 
 const props = defineProps<{ app: InstalledApp | null }>();
 const message = useMessage();
+const apps = useAppsStore();
+const logs = useLogsStore();
+const ui = useUiStore();
+const busy = computed(() => logs.busy);
+
+async function afterTask(record: TaskRecord) {
+  if (record.success) {
+    await apps.load();
+  } else {
+    message.error(`操作失败（退出码 ${record.code ?? "未知"}），详见任务日志`);
+  }
+}
+
+async function doUpdate() {
+  if (!props.app) return;
+  const name = props.app.name;
+  ui.logDrawerOpen = true;
+  const record = await runTask(`更新 ${name}`, (taskId) => updatePackage(name, false, false, taskId));
+  await afterTask(record);
+}
+
+async function doUninstall() {
+  if (!props.app) return;
+  const name = props.app.name;
+  ui.logDrawerOpen = true;
+  const record = await runTask(`卸载 ${name}`, (taskId) => uninstallPackage(name, false, false, taskId));
+  await afterTask(record);
+}
+
+async function toggleHold() {
+  if (!props.app) return;
+  const name = props.app.name;
+  const next = !props.app.hold;
+  ui.logDrawerOpen = true;
+  const record = await runTask(`${next ? "锁定" : "解除锁定"} ${name}`, (taskId) =>
+    setHold(name, next, false, taskId),
+  );
+  await afterTask(record);
+}
 
 async function openHomepage() {
   if (!props.app?.homepage) return;

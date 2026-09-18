@@ -23,6 +23,9 @@ const otherCommands = vi.hoisted(() => ({
   addRoot: vi.fn(),
   listBuckets: vi.fn(),
   cancelTask: vi.fn(),
+  updatePackage: vi.fn(),
+  uninstallPackage: vi.fn(),
+  setHold: vi.fn(),
 }));
 
 vi.mock("../api/commands", () => ({

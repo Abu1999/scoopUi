@@ -25,7 +25,14 @@ pub fn run() {
             commands::runner::cancel_task,
             commands::search::search_packages,
             commands::search::refresh_package_index,
-            commands::icons::fetch_icon
+            commands::icons::fetch_icon,
+            commands::ops::install_package,
+            commands::ops::uninstall_package,
+            commands::ops::update_package,
+            commands::ops::set_hold,
+            commands::ops::bucket_add,
+            commands::ops::bucket_remove,
+            commands::ops::run_maintenance
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

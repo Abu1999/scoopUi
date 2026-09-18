@@ -1,0 +1,93 @@
+use tauri::{AppHandle, State};
+
+use crate::commands::runner::spawn_task;
+use crate::domain::scoopops;
+use crate::error::AppError;
+use crate::state::AppState;
+
+#[tauri::command(async)]
+pub fn install_package(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+    bucket: Option<String>,
+    version: Option<String>,
+    global: bool,
+    task_id: String,
+) -> Result<(), AppError> {
+    let args = scoopops::install_args(&name, bucket.as_deref(), version.as_deref(), global)?;
+    spawn_task(&app, &state, args, task_id)
+}
+
+#[tauri::command(async)]
+pub fn uninstall_package(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+    global: bool,
+    purge: bool,
+    task_id: String,
+) -> Result<(), AppError> {
+    let args = scoopops::uninstall_args(&name, global, purge)?;
+    spawn_task(&app, &state, args, task_id)
+}
+
+#[tauri::command(async)]
+pub fn update_package(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: Option<String>,
+    all: bool,
+    global: bool,
+    task_id: String,
+) -> Result<(), AppError> {
+    let args = scoopops::update_args(name.as_deref(), all, global)?;
+    spawn_task(&app, &state, args, task_id)
+}
+
+#[tauri::command(async)]
+pub fn set_hold(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+    hold: bool,
+    global: bool,
+    task_id: String,
+) -> Result<(), AppError> {
+    let args = scoopops::hold_args(&name, hold, global)?;
+    spawn_task(&app, &state, args, task_id)
+}
+
+#[tauri::command(async)]
+pub fn bucket_add(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+    repo: Option<String>,
+    task_id: String,
+) -> Result<(), AppError> {
+    let args = scoopops::bucket_add_args(&name, repo.as_deref())?;
+    spawn_task(&app, &state, args, task_id)
+}
+
+#[tauri::command(async)]
+pub fn bucket_remove(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+    task_id: String,
+) -> Result<(), AppError> {
+    let args = scoopops::bucket_remove_args(&name)?;
+    spawn_task(&app, &state, args, task_id)
+}
+
+#[tauri::command(async)]
+pub fn run_maintenance(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    op: String,
+    task_id: String,
+) -> Result<(), AppError> {
+    let args = scoopops::maintenance_args(&op)?;
+    spawn_task(&app, &state, args, task_id)
+}

@@ -59,6 +59,7 @@ import type { PackageEntry } from "../../api/types";
 import { installPackage } from "../../api/commands";
 import { useAppsStore } from "../../stores/apps";
 import { useLogsStore } from "../../stores/logs";
+import { useRootsStore } from "../../stores/roots";
 import { useUiStore } from "../../stores/ui";
 import { runTask } from "../../utils/tasks";
 
@@ -66,6 +67,7 @@ const props = defineProps<{ pkg: PackageEntry | null }>();
 const message = useMessage();
 const apps = useAppsStore();
 const logs = useLogsStore();
+const roots = useRootsStore();
 const ui = useUiStore();
 const version = ref("");
 const globalInstall = ref(false);
@@ -81,7 +83,7 @@ async function doInstall() {
   );
   if (record.success) {
     message.success(`已安装 ${pkg.name}`);
-    await apps.load();
+    await Promise.all([apps.load(), roots.load()]);
   } else {
     message.error(`安装失败（退出码 ${record.code ?? "未知"}），详见任务日志`);
   }

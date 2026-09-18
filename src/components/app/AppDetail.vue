@@ -57,6 +57,7 @@ import type { InstalledApp } from "../../api/types";
 import { setHold, uninstallPackage, updatePackage } from "../../api/commands";
 import { useAppsStore } from "../../stores/apps";
 import { useLogsStore } from "../../stores/logs";
+import { useRootsStore } from "../../stores/roots";
 import { useUiStore } from "../../stores/ui";
 import { runTask } from "../../utils/tasks";
 import type { TaskRecord } from "../../stores/logs";
@@ -65,12 +66,13 @@ const props = defineProps<{ app: InstalledApp | null }>();
 const message = useMessage();
 const apps = useAppsStore();
 const logs = useLogsStore();
+const roots = useRootsStore();
 const ui = useUiStore();
 const busy = computed(() => logs.busy);
 
 async function afterTask(record: TaskRecord) {
   if (record.success) {
-    await apps.load();
+    await Promise.all([apps.load(), roots.load()]);
   } else {
     message.error(`操作失败（退出码 ${record.code ?? "未知"}），详见任务日志`);
   }

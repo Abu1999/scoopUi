@@ -218,6 +218,7 @@ describe("StorePage", () => {
     useLogsStore().end({ taskId, code: 0, success: true });
     await flushPromises();
     expect(mocks.listInstalledApps).toHaveBeenCalled();
+    expect(mocks.detectRoots).toHaveBeenCalled();
   });
 
   it("版本与全局选项传入安装命令", async () => {

@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme-overrides="themeOverrides">
+  <n-config-provider :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <n-message-provider>
       <AppShell />
     </n-message-provider>
@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-import { NConfigProvider, NMessageProvider } from "naive-ui";
+import { NConfigProvider, NMessageProvider, dateZhCN, zhCN } from "naive-ui";
 import AppShell from "./components/layout/AppShell.vue";
 
 const themeOverrides = {

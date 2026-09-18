@@ -55,6 +55,10 @@ function pkg(name: string, extra: Partial<PackageEntry> = {}): PackageEntry {
   };
 }
 
+function list(n: number): PackageEntry[] {
+  return Array.from({ length: n }, (_, i) => pkg(`p${String(i).padStart(3, "0")}`));
+}
+
 describe("StorePage", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -72,7 +76,7 @@ describe("StorePage", () => {
   it("挂载时执行一次搜索并渲染结果与详情", async () => {
     const wrapper = mount(StorePage);
     await flushPromises();
-    expect(mocks.searchPackages).toHaveBeenCalledWith("");
+    expect(mocks.searchPackages).toHaveBeenCalledWith("", 50);
     expect(wrapper.text()).toContain("git-lfs");
     expect(wrapper.find(".detail").text()).toContain("分布式版本控制系统");
   });
@@ -90,7 +94,7 @@ describe("StorePage", () => {
     expect(mocks.searchPackages).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(1);
-    expect(mocks.searchPackages).toHaveBeenLastCalledWith("git");
+    expect(mocks.searchPackages).toHaveBeenLastCalledWith("git", 50);
   });
 
   it("可切换列表/卡片视图", async () => {
@@ -148,5 +152,26 @@ describe("StorePage", () => {
     const wrapper = mount(StorePage);
     await flushPromises();
     expect(wrapper.text()).toContain("未找到 scoop 根目录");
+  });
+
+  it("滚动接近底部时加载下一页", async () => {
+    mocks.searchPackages.mockResolvedValueOnce(list(50));
+    mocks.searchPackages.mockResolvedValueOnce(list(60));
+    const wrapper = mount(StorePage);
+    await flushPromises();
+    const scroller = wrapper.find(".results").element as HTMLElement;
+    Object.defineProperty(scroller, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(scroller, "clientHeight", { value: 400, configurable: true });
+    Object.defineProperty(scroller, "scrollTop", { value: 500, configurable: true, writable: true });
+    await wrapper.find(".results").trigger("scroll");
+    await flushPromises();
+    expect(mocks.searchPackages).toHaveBeenLastCalledWith("", 100);
+  });
+
+  it("结果少于页大小时显示已全部加载", async () => {
+    mocks.searchPackages.mockResolvedValue([pkg("git"), pkg("git-lfs")]);
+    const wrapper = mount(StorePage);
+    await flushPromises();
+    expect(wrapper.text()).toContain("已显示全部 2 条");
   });
 });

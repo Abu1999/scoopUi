@@ -22,9 +22,10 @@
       </div>
 
       <n-alert v-if="pkgs.error" type="error" size="small" class="alert">{{ pkgs.error }}</n-alert>
-      <div v-if="pkgs.loading" class="hint">搜索中…</div>
-      <div v-else-if="pkgs.results.length === 0" class="hint">没有匹配的应用</div>
-      <div v-else class="results" :class="view">
+      <div v-if="pkgs.results.length === 0 && !pkgs.error" class="hint">
+        {{ pkgs.loading ? "搜索中…" : "没有匹配的应用" }}
+      </div>
+      <div v-else-if="pkgs.results.length > 0" class="results" :class="view" @scroll="onScroll">
         <template v-if="view === 'list'">
           <div
             v-for="p in pkgs.results"
@@ -56,6 +57,8 @@
             <div class="card-meta">{{ p.version }}</div>
           </div>
         </template>
+        <div v-if="pkgs.loading" class="load-state">加载中…</div>
+        <div v-else-if="pkgs.loadedAll" class="load-state">已显示全部 {{ pkgs.results.length }} 条</div>
       </div>
     </div>
     <PackageDetail :pkg="pkgs.selected" class="detail" />
@@ -85,6 +88,15 @@ function onInput(value: string) {
 
 function refresh() {
   pkgs.refresh();
+}
+
+const LOAD_MORE_THRESHOLD = 200;
+
+function onScroll(e: Event) {
+  const el = e.target as HTMLElement;
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < LOAD_MORE_THRESHOLD) {
+    pkgs.loadMore();
+  }
 }
 
 watch(
@@ -171,6 +183,7 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 8px;
+  align-content: start;
 }
 .card {
   display: flex;
@@ -197,6 +210,13 @@ onBeforeUnmount(() => {
 .card-meta {
   font-size: 12px;
   color: #888;
+}
+.load-state {
+  padding: 12px;
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+  grid-column: 1 / -1;
 }
 .detail {
   width: 380px;

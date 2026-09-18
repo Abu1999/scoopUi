@@ -23,6 +23,10 @@ function pkg(name: string): PackageEntry {
   };
 }
 
+function list(n: number): PackageEntry[] {
+  return Array.from({ length: n }, (_, i) => pkg(`p${String(i).padStart(3, "0")}`));
+}
+
 describe("packages store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -33,7 +37,7 @@ describe("packages store", () => {
     mocks.searchPackages.mockResolvedValue([pkg("git"), pkg("git-lfs")]);
     const store = usePackagesStore();
     await store.search("git");
-    expect(mocks.searchPackages).toHaveBeenCalledWith("git");
+    expect(mocks.searchPackages).toHaveBeenCalledWith("git", 50);
     expect(store.results).toHaveLength(2);
     expect(store.selectedName).toBe("git");
     expect(store.selected?.name).toBe("git");
@@ -84,8 +88,54 @@ describe("packages store", () => {
     await store.refresh();
     expect(mocks.refreshPackageIndex).toHaveBeenCalledTimes(1);
     expect(mocks.searchPackages).toHaveBeenCalledTimes(2);
-    expect(mocks.searchPackages).toHaveBeenLastCalledWith("git");
+    expect(mocks.searchPackages).toHaveBeenLastCalledWith("git", 50);
     expect(store.indexCount).toBe(4955);
     expect(store.refreshing).toBe(false);
+  });
+
+  it("loadMore 增大 limit 并保留已加载结果与选中项", async () => {
+    mocks.searchPackages.mockResolvedValueOnce(list(50));
+    const store = usePackagesStore();
+    await store.search("");
+    expect(store.limit).toBe(50);
+    expect(store.loadedAll).toBe(false);
+    store.select("p049");
+    mocks.searchPackages.mockResolvedValueOnce(list(60));
+    await store.loadMore();
+    expect(mocks.searchPackages).toHaveBeenLastCalledWith("", 100);
+    expect(store.results).toHaveLength(60);
+    expect(store.loadedAll).toBe(true);
+    expect(store.selectedName).toBe("p049");
+  });
+
+  it("结果少于页大小视为已全部加载，loadMore 不再请求", async () => {
+    mocks.searchPackages.mockResolvedValue([pkg("git"), pkg("git-lfs")]);
+    const store = usePackagesStore();
+    await store.search("git");
+    expect(store.loadedAll).toBe(true);
+    await store.loadMore();
+    expect(mocks.searchPackages).toHaveBeenCalledTimes(1);
+  });
+
+  it("新搜索重置 limit 为 50", async () => {
+    mocks.searchPackages.mockResolvedValueOnce(list(50));
+    const store = usePackagesStore();
+    await store.search("");
+    mocks.searchPackages.mockResolvedValueOnce(list(60));
+    await store.loadMore();
+    mocks.searchPackages.mockResolvedValueOnce([pkg("x")]);
+    await store.search("x");
+    expect(mocks.searchPackages).toHaveBeenLastCalledWith("x", 50);
+    expect(store.limit).toBe(50);
+  });
+
+  it("loadMore 失败保留现有结果与错误信息", async () => {
+    mocks.searchPackages.mockResolvedValueOnce(list(50));
+    const store = usePackagesStore();
+    await store.search("");
+    mocks.searchPackages.mockRejectedValueOnce("未找到 scoop 根目录");
+    await store.loadMore();
+    expect(store.results).toHaveLength(50);
+    expect(store.error).toBe("未找到 scoop 根目录");
   });
 });

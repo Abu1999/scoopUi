@@ -114,4 +114,12 @@ describe("AppDetail 操作", () => {
     expect(findButton(wrapper, "卸载").attributes("disabled")).toBeDefined();
     expect(findButton(wrapper, "锁定").attributes("disabled")).toBeDefined();
   });
+
+  it("任务运行中确认卸载不会再次发起", async () => {
+    const wrapper = mount(AppDetail, { props: { app: git } });
+    useLogsStore().start("t1", "更新 git");
+    await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
+    await flushPromises();
+    expect(mocks.uninstallPackage).not.toHaveBeenCalled();
+  });
 });

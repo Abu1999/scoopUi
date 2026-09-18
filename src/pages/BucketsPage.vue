@@ -1,7 +1,16 @@
 <template>
   <div class="page">
     <div class="toolbar">
-      <n-input v-model:value="newName" size="small" placeholder="桶名称（如 extras）" class="name" />
+      <n-select
+        v-model:value="newName"
+        size="small"
+        filterable
+        tag
+        clearable
+        :options="nameOptions"
+        placeholder="桶名称（可选已知桶或直接输入）"
+        class="name"
+      />
       <n-input v-model:value="newRepo" size="small" placeholder="仓库地址（可选，已知桶可留空）" class="repo" />
       <n-button size="small" :disabled="busy || !canAdd" @click="doAdd">添加桶</n-button>
       <n-button size="small" :disabled="busy" @click="doUpdateAll">更新 Scoop 与桶</n-button>
@@ -24,7 +33,10 @@
           <td>{{ b.manifest_count }}</td>
           <td>{{ b.is_git ? "git" : "目录" }}</td>
           <td>
-            <n-popconfirm @positive-click="doRemove(b.name)">
+            <n-popconfirm
+              :positive-button-props="{ disabled: busy, type: 'error' }"
+              @positive-click="doRemove(b.name)"
+            >
               <template #trigger>
                 <n-button size="tiny" type="error" :disabled="busy">删除</n-button>
               </template>
@@ -39,8 +51,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { NAlert, NButton, NInput, NPopconfirm, NTable, useMessage } from "naive-ui";
-import { bucketAdd, bucketRemove, updatePackage } from "../api/commands";
+import { NAlert, NButton, NInput, NPopconfirm, NSelect, NTable, useMessage } from "naive-ui";
+import { bucketAdd, bucketRemove, listKnownBuckets, updatePackage } from "../api/commands";
 import { useBucketsStore } from "../stores/buckets";
 import { useLogsStore } from "../stores/logs";
 import { useRootsStore } from "../stores/roots";
@@ -53,12 +65,21 @@ const roots = useRootsStore();
 const logs = useLogsStore();
 const ui = useUiStore();
 const message = useMessage();
-const newName = ref("");
+const newName = ref<string | null>(null);
 const newRepo = ref("");
+const known = ref<string[]>([]);
 const busy = computed(() => logs.busy);
-const canAdd = computed(() => newName.value.trim().length > 0);
+const nameOptions = computed(() => known.value.map((n) => ({ label: n, value: n })));
+const canAdd = computed(() => (newName.value ?? "").trim().length > 0);
 
-onMounted(reload);
+onMounted(async () => {
+  try {
+    known.value = await listKnownBuckets();
+  } catch {
+    known.value = [];
+  }
+  await reload();
+});
 
 async function reload() {
   await store.load();
@@ -74,25 +95,28 @@ async function afterTask(record: TaskRecord) {
 }
 
 async function doAdd() {
-  const name = newName.value.trim();
+  if (busy.value) return;
+  const name = (newName.value ?? "").trim();
   if (!name) return;
   const repo = newRepo.value.trim() === "" ? null : newRepo.value.trim();
   ui.logDrawerOpen = true;
   const record = await runTask(`添加桶 ${name}`, (taskId) => bucketAdd(name, repo, taskId));
   if (record.success) {
-    newName.value = "";
+    newName.value = null;
     newRepo.value = "";
   }
   await afterTask(record);
 }
 
 async function doRemove(name: string) {
+  if (busy.value) return;
   ui.logDrawerOpen = true;
   const record = await runTask(`删除桶 ${name}`, (taskId) => bucketRemove(name, taskId));
   await afterTask(record);
 }
 
 async function doUpdateAll() {
+  if (busy.value) return;
   ui.logDrawerOpen = true;
   const record = await runTask("更新 Scoop 与桶", (taskId) => updatePackage(null, false, false, taskId));
   await afterTask(record);

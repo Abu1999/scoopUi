@@ -23,7 +23,7 @@ const apps = useAppsStore();
   height: 100%;
 }
 .side {
-  width: 280px;
+  width: 340px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;

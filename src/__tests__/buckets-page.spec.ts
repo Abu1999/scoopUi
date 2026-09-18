@@ -1,11 +1,12 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NPopconfirm } from "naive-ui";
+import { NPopconfirm, NSelect } from "naive-ui";
 
 const messageError = vi.hoisted(() => vi.fn());
 const mocks = vi.hoisted(() => ({
   listBuckets: vi.fn(),
+  listKnownBuckets: vi.fn().mockResolvedValue(["extras", "java", "games"]),
   detectRoots: vi.fn().mockResolvedValue([]),
   getActiveRoot: vi.fn().mockResolvedValue(null),
   bucketAdd: vi.fn().mockResolvedValue(undefined),
@@ -48,7 +49,7 @@ describe("BucketsPage 操作", () => {
     const wrapper = mount(BucketsPage);
     await flushPromises();
     expect(useBucketsStore().buckets).toHaveLength(1);
-    await wrapper.find('input[placeholder="桶名称（如 extras）"]').setValue("java");
+    await wrapper.findComponent(NSelect).vm.$emit("update:value", "java");
     await wrapper.find('input[placeholder="仓库地址（可选，已知桶可留空）"]').setValue("https://example.com/java.git");
     const button = wrapper.findAll("button").find((b) => b.text().includes("添加桶"));
     await button!.trigger("click");
@@ -63,11 +64,37 @@ describe("BucketsPage 操作", () => {
   it("已知桶仓库留空时传 null", async () => {
     const wrapper = mount(BucketsPage);
     await flushPromises();
-    await wrapper.find('input[placeholder="桶名称（如 extras）"]').setValue("extras");
+    await wrapper.findComponent(NSelect).vm.$emit("update:value", "extras");
     const button = wrapper.findAll("button").find((b) => b.text().includes("添加桶"));
     await button!.trigger("click");
     await flushPromises();
     expect(mocks.bucketAdd).toHaveBeenCalledWith("extras", null, expect.any(String));
+  });
+
+  it("下拉展示已知桶并可直接选择", async () => {
+    const wrapper = mount(BucketsPage);
+    await flushPromises();
+    const select = wrapper.findComponent(NSelect);
+    expect(select.props("options")).toEqual([
+      { label: "extras", value: "extras" },
+      { label: "java", value: "java" },
+      { label: "games", value: "games" },
+    ]);
+    select.vm.$emit("update:value", "games");
+    await flushPromises();
+    const button = wrapper.findAll("button").find((b) => b.text().includes("添加桶"));
+    await button!.trigger("click");
+    await flushPromises();
+    expect(mocks.bucketAdd).toHaveBeenCalledWith("games", null, expect.any(String));
+  });
+
+  it("任务运行中确认删除不会再次发起", async () => {
+    const wrapper = mount(BucketsPage);
+    await flushPromises();
+    useLogsStore().start("t1", "更新");
+    await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
+    await flushPromises();
+    expect(mocks.bucketRemove).not.toHaveBeenCalled();
   });
 
   it("删除桶需确认且失败提示错误", async () => {

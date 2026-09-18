@@ -19,7 +19,10 @@
         <n-button v-if="app.homepage" size="small" @click="openHomepage">打开主页</n-button>
         <n-button size="small" @click="openDir">打开安装目录</n-button>
         <n-button size="small" :disabled="busy" @click="doUpdate">更新</n-button>
-        <n-popconfirm @positive-click="doUninstall">
+        <n-popconfirm
+          :positive-button-props="{ disabled: busy, type: 'error' }"
+          @positive-click="doUninstall"
+        >
           <template #trigger>
             <n-button size="small" type="error" :disabled="busy">卸载</n-button>
           </template>
@@ -79,6 +82,7 @@ async function afterTask(record: TaskRecord) {
 }
 
 async function doUpdate() {
+  if (busy.value) return;
   if (!props.app) return;
   const name = props.app.name;
   ui.logDrawerOpen = true;
@@ -87,6 +91,7 @@ async function doUpdate() {
 }
 
 async function doUninstall() {
+  if (busy.value) return;
   if (!props.app) return;
   const name = props.app.name;
   ui.logDrawerOpen = true;
@@ -95,6 +100,7 @@ async function doUninstall() {
 }
 
 async function toggleHold() {
+  if (busy.value) return;
   if (!props.app) return;
   const name = props.app.name;
   const next = !props.app.hold;

@@ -73,4 +73,20 @@ describe("MaintenancePage", () => {
     const wrapper = mount(MaintenancePage);
     expect(clickButton(wrapper, "运行检查").attributes("disabled")).toBeDefined();
   });
+
+  it("展示实际命令与操作指引", () => {
+    const wrapper = mount(MaintenancePage);
+    const text = wrapper.text();
+    expect(text).toContain("scoop cache rm -a");
+    expect(text).toContain("scoop reset -a");
+    expect(text).toContain("底部任务日志");
+  });
+
+  it("任务运行中确认操作不会再次发起", async () => {
+    const wrapper = mount(MaintenancePage);
+    useLogsStore().start("t1", "维护");
+    await wrapper.findAllComponents(NPopconfirm)[0].vm.$emit("positive-click");
+    await flushPromises();
+    expect(mocks.runMaintenance).not.toHaveBeenCalled();
+  });
 });

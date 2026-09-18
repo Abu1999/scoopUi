@@ -74,6 +74,7 @@ const globalInstall = ref(false);
 const busy = computed(() => logs.busy);
 
 async function doInstall() {
+  if (busy.value) return;
   if (!props.pkg) return;
   const pkg = props.pkg;
   const ver = version.value.trim() === "" ? null : version.value.trim();

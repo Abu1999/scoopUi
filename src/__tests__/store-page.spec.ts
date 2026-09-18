@@ -237,6 +237,19 @@ describe("StorePage", () => {
     expect(mocks.installPackage).toHaveBeenCalledWith("git", "main", "2.7.0", true, expect.any(String));
   });
 
+  it("同一时刻重复点击安装只发起一次", async () => {
+    const wrapper = mount(StorePage);
+    await flushPromises();
+    const button = wrapper.findAll("button").find((b) => b.text().includes("安装"));
+    expect(button).toBeTruthy();
+    const first = button!.trigger("click");
+    const second = button!.trigger("click");
+    await first;
+    await second;
+    await flushPromises();
+    expect(mocks.installPackage).toHaveBeenCalledTimes(1);
+  });
+
   it("安装失败提示错误", async () => {
     mocks.searchPackages.mockResolvedValue([pkg("git")]);
     const wrapper = mount(StorePage);

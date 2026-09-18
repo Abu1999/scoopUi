@@ -50,6 +50,7 @@ pub fn uninstall_args(name: &str, global: bool, purge: bool) -> Result<Vec<Strin
 }
 
 pub fn update_args(name: Option<&str>, all: bool, global: bool) -> Result<Vec<String>, AppError> {
+    let name = optional(name, "应用名")?;
     if all && name.is_some() {
         return Err(AppError::Other("不能同时指定 --all 与应用名".to_string()));
     }
@@ -63,7 +64,7 @@ pub fn update_args(name: Option<&str>, all: bool, global: bool) -> Result<Vec<St
         return Ok(vec!["update".to_string(), "-a".to_string()]);
     }
     let mut args = vec!["update".to_string()];
-    if let Some(name) = optional(name, "应用名")? {
+    if let Some(name) = name {
         args.push(name);
         if global {
             args.push("-g".to_string());
@@ -148,6 +149,9 @@ mod tests {
         assert!(update_args(Some("git"), true, false).is_err());
         assert!(update_args(None, false, true).is_err());
         assert!(update_args(None, true, true).is_err());
+        assert_eq!(update_args(Some("   "), false, false).unwrap(), v(&["update"]));
+        assert_eq!(update_args(Some("   "), true, false).unwrap(), v(&["update", "-a"]));
+        assert!(update_args(Some("   "), false, true).is_err());
     }
 
     #[test]

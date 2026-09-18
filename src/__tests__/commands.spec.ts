@@ -5,17 +5,24 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
 import {
   addRoot,
+  bucketAdd,
+  bucketRemove,
   cancelTask,
   detectRoots,
   fetchIcon,
   getActiveRoot,
   getScoopConfig,
+  installPackage,
   listBuckets,
   listInstalledApps,
   refreshPackageIndex,
+  runMaintenance,
   runScoop,
   searchPackages,
   setActiveRoot,
+  setHold,
+  uninstallPackage,
+  updatePackage,
 } from "../api/commands";
 
 describe("commands 包装", () => {
@@ -62,5 +69,53 @@ describe("commands 包装", () => {
 
     await fetchIcon("https://gitforwindows.org");
     expect(invokeMock).toHaveBeenLastCalledWith("fetch_icon", { source: "https://gitforwindows.org" });
+  });
+
+  it("M3 操作命令名与参数符合后端契约", async () => {
+    await installPackage("git", "main", null, false, "t-2");
+    expect(invokeMock).toHaveBeenLastCalledWith("install_package", {
+      name: "git",
+      bucket: "main",
+      version: null,
+      global: false,
+      taskId: "t-2",
+    });
+
+    await uninstallPackage("git", false, true, "t-2");
+    expect(invokeMock).toHaveBeenLastCalledWith("uninstall_package", {
+      name: "git",
+      global: false,
+      purge: true,
+      taskId: "t-2",
+    });
+
+    await updatePackage(null, true, false, "t-2");
+    expect(invokeMock).toHaveBeenLastCalledWith("update_package", {
+      name: null,
+      all: true,
+      global: false,
+      taskId: "t-2",
+    });
+
+    await setHold("git", true, false, "t-2");
+    expect(invokeMock).toHaveBeenLastCalledWith("set_hold", {
+      name: "git",
+      hold: true,
+      global: false,
+      taskId: "t-2",
+    });
+
+    await bucketAdd("java", null, "t-2");
+    expect(invokeMock).toHaveBeenLastCalledWith("bucket_add", {
+      name: "java",
+      repo: null,
+      taskId: "t-2",
+    });
+
+    await bucketRemove("java", "t-2");
+    expect(invokeMock).toHaveBeenLastCalledWith("bucket_remove", { name: "java", taskId: "t-2" });
+
+    await runMaintenance("checkup", "t-2");
+    expect(invokeMock).toHaveBeenLastCalledWith("run_maintenance", { op: "checkup", taskId: "t-2" });
   });
 });

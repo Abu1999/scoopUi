@@ -87,4 +87,22 @@ describe("logs store", () => {
     expect(store.running["t1"]).toBe(false);
     expect(store.history[0]).toMatchObject({ taskId: "t1", label: "scoop --version", success: true });
   });
+
+  it("busy 反映是否有任务运行中", () => {
+    const store = useLogsStore();
+    expect(store.busy).toBe(false);
+    store.start("t1", "安装 git");
+    expect(store.busy).toBe(true);
+    store.end({ taskId: "t1", code: 0, success: true });
+    expect(store.busy).toBe(false);
+  });
+
+  it("fail 落地失败状态与错误行", () => {
+    const store = useLogsStore();
+    store.start("t1", "安装 git");
+    store.fail("t1", "已有任务正在运行，请等待完成或取消后再试");
+    expect(store.running["t1"]).toBe(false);
+    expect(store.history[0]).toMatchObject({ taskId: "t1", success: false, code: null });
+    expect(store.lines.some((l) => l.line.includes("已有任务正在运行"))).toBe(true);
+  });
 });

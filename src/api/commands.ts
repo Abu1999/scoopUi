@@ -21,3 +21,22 @@ export const searchPackages = (query: string, limit?: number) =>
   invoke<PackageEntry[]>("search_packages", { query, limit });
 export const refreshPackageIndex = () => invoke<number>("refresh_package_index");
 export const fetchIcon = (source: string) => invoke<string | null>("fetch_icon", { source });
+export const installPackage = (
+  name: string,
+  bucket: string | null,
+  version: string | null,
+  global: boolean,
+  taskId: string,
+) => invoke<void>("install_package", { name, bucket, version, global, taskId });
+export const uninstallPackage = (name: string, global: boolean, purge: boolean, taskId: string) =>
+  invoke<void>("uninstall_package", { name, global, purge, taskId });
+export const updatePackage = (name: string | null, all: boolean, global: boolean, taskId: string) =>
+  invoke<void>("update_package", { name, all, global, taskId });
+export const setHold = (name: string, hold: boolean, global: boolean, taskId: string) =>
+  invoke<void>("set_hold", { name, hold, global, taskId });
+export const bucketAdd = (name: string, repo: string | null, taskId: string) =>
+  invoke<void>("bucket_add", { name, repo, taskId });
+export const bucketRemove = (name: string, taskId: string) =>
+  invoke<void>("bucket_remove", { name, taskId });
+export const runMaintenance = (op: string, taskId: string) =>
+  invoke<void>("run_maintenance", { op, taskId });

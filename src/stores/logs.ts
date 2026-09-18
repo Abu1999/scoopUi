@@ -25,6 +25,11 @@ export const useLogsStore = defineStore("logs", {
     initialized: false,
     initPromise: null as Promise<void> | null,
   }),
+  getters: {
+    busy(state): boolean {
+      return Object.values(state.running).some(Boolean);
+    },
+  },
   actions: {
     async init() {
       if (this.initialized) return;
@@ -75,6 +80,12 @@ export const useLogsStore = defineStore("logs", {
         stream: "meta",
         line: e.success ? `■ ${label} 完成` : `■ ${label} 失败（退出码 ${e.code ?? "未知"}）`,
       });
+    },
+    fail(taskId: string, message: string) {
+      this.running[taskId] = false;
+      const label = this.labels[taskId] ?? taskId;
+      this.history.unshift({ taskId, label, success: false, code: null, at: Date.now() });
+      this.lines.push({ taskId, stream: "stderr", line: message });
     },
     clear() {
       this.lines = [];

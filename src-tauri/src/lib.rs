@@ -22,7 +22,9 @@ pub fn run() {
             commands::buckets::list_buckets,
             commands::config::get_scoop_config,
             commands::runner::run_scoop,
-            commands::runner::cancel_task
+            commands::runner::cancel_task,
+            commands::search::search_packages,
+            commands::search::refresh_package_index
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

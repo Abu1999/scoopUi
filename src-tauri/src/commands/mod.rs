@@ -3,6 +3,7 @@ pub mod buckets;
 pub mod config;
 pub mod roots;
 pub mod runner;
+pub mod search;
 
 use std::path::PathBuf;
 

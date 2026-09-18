@@ -12,6 +12,7 @@ pub struct ManifestSummary {
     pub depends: Vec<String>,
     pub bin: Vec<String>,
     pub persist: Vec<String>,
+    pub deprecated: bool,
 }
 
 #[derive(Deserialize)]
@@ -24,6 +25,7 @@ struct Raw {
     depends: Option<serde_json::Value>,
     bin: Option<serde_json::Value>,
     persist: Option<serde_json::Value>,
+    deprecated: Option<bool>,
 }
 
 fn strings_from(v: &serde_json::Value) -> Vec<String> {
@@ -72,6 +74,7 @@ pub fn parse(text: &str) -> Result<ManifestSummary, AppError> {
         depends: raw.depends.as_ref().map(strings_from).unwrap_or_default(),
         bin: raw.bin.as_ref().map(strings_from).unwrap_or_default(),
         persist: raw.persist.as_ref().map(strings_from).unwrap_or_default(),
+        deprecated: raw.deprecated.unwrap_or(false),
     })
 }
 
@@ -111,5 +114,13 @@ mod tests {
     fn rejects_manifest_without_version() {
         let err = parse(r#"{"description":"x"}"#).unwrap_err();
         assert!(err.to_string().contains("version"));
+    }
+
+    #[test]
+    fn reads_deprecated_flag() {
+        let m = parse(r#"{"version":"1.0","deprecated":true}"#).unwrap();
+        assert!(m.deprecated);
+        let m2 = parse(r#"{"version":"1.0"}"#).unwrap();
+        assert!(!m2.deprecated);
     }
 }

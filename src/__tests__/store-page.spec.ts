@@ -38,6 +38,10 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openPath: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(() => Promise.resolve(() => {})),
+}));
+
 import StorePage from "../pages/StorePage.vue";
 import type { PackageEntry } from "../api/types";
 import { useLogsStore } from "../stores/logs";

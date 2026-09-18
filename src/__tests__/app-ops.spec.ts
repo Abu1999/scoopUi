@@ -34,6 +34,10 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(() => Promise.resolve(() => {})),
+}));
+
 import AppDetail from "../components/app/AppDetail.vue";
 import { useAppsStore } from "../stores/apps";
 import { useLogsStore } from "../stores/logs";

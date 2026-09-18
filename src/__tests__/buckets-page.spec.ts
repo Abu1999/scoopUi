@@ -27,6 +27,10 @@ vi.mock("naive-ui", async () => {
   };
 });
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(() => Promise.resolve(() => {})),
+}));
+
 import BucketsPage from "../pages/BucketsPage.vue";
 import { useBucketsStore } from "../stores/buckets";
 import { useLogsStore } from "../stores/logs";

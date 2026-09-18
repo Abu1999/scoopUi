@@ -5,6 +5,9 @@ fn require(value: &str, kind: &str) -> Result<String, AppError> {
     if trimmed.is_empty() || trimmed.chars().any(char::is_whitespace) {
         return Err(AppError::Other(format!("{kind}不能为空且不能包含空白字符")));
     }
+    if trimmed.starts_with('-') {
+        return Err(AppError::Other(format!("{kind}不能以 - 开头")));
+    }
     Ok(trimmed.to_string())
 }
 
@@ -171,6 +174,18 @@ mod tests {
         assert_eq!(bucket_remove_args("java").unwrap(), v(&["bucket", "rm", "java"]));
         assert!(bucket_add_args("", None).is_err());
         assert!(bucket_remove_args("a b").is_err());
+    }
+
+    #[test]
+    fn rejects_values_starting_with_dash() {
+        assert!(install_args("-g", None, None, false).is_err());
+        assert!(install_args("git", Some("--all"), None, false).is_err());
+        assert!(install_args("git", None, Some("-x"), false).is_err());
+        assert!(update_args(Some("-a"), false, false).is_err());
+        assert!(hold_args("--global", true, false).is_err());
+        assert!(bucket_add_args("-x", None).is_err());
+        assert!(bucket_remove_args("-x").is_err());
+        assert!(uninstall_args("-p", false, false).is_err());
     }
 
     #[test]

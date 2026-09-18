@@ -22,6 +22,10 @@ vi.mock("naive-ui", async () => {
   };
 });
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(() => Promise.resolve(() => {})),
+}));
+
 import MaintenancePage from "../pages/MaintenancePage.vue";
 import { useLogsStore } from "../stores/logs";
 

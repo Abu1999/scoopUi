@@ -11,6 +11,7 @@ import { useRootsStore } from "../stores/roots";
 import type { InstalledApp, RootInfo } from "../api/types";
 
 const messageError = vi.hoisted(() => vi.fn());
+const fetchIcon = vi.hoisted(() => vi.fn());
 
 const listInstalledApps = vi.hoisted(() => vi.fn());
 const getScoopConfig = vi.hoisted(() => vi.fn());
@@ -29,6 +30,7 @@ vi.mock("../api/commands", () => ({
   listInstalledApps,
   getScoopConfig,
   runScoop,
+  fetchIcon,
 }));
 
 vi.mock("naive-ui", async () => {
@@ -65,12 +67,41 @@ const git: InstalledApp = {
   app_dir: "C:\\scoop\\apps\\git",
 };
 
+beforeEach(() => {
+  setActivePinia(createPinia());
+  fetchIcon.mockReset().mockResolvedValue(null);
+});
+
 describe("AppIcon", () => {
-  it("无图标时显示首字母与固定背景色", () => {
+  it("无 source 时显示首字母与固定背景色，且不请求图标", () => {
     const wrapper = mount(AppIcon, { props: { name: "git" } });
     expect(wrapper.text()).toContain("G");
     const style = wrapper.find(".icon").attributes("style") ?? "";
     expect(style.includes("#f0a020") || style.includes("rgb(240, 160, 32)")).toBe(true);
+    expect(fetchIcon).not.toHaveBeenCalled();
+  });
+
+  it("source 抓取成功后用 img 展示图标", async () => {
+    fetchIcon.mockResolvedValue("data:image/png;base64,AA==");
+    const wrapper = mount(AppIcon, {
+      props: { name: "git", source: "https://gitforwindows.org" },
+    });
+    expect(fetchIcon).toHaveBeenCalledWith("https://gitforwindows.org");
+    await flushPromises();
+    const img = wrapper.find("img");
+    expect(img.exists()).toBe(true);
+    expect(img.attributes("src")).toBe("data:image/png;base64,AA==");
+    expect(wrapper.find(".icon").exists()).toBe(false);
+  });
+
+  it("source 抓取失败时回退首字母", async () => {
+    fetchIcon.mockResolvedValue(null);
+    const wrapper = mount(AppIcon, {
+      props: { name: "7zip", source: "https://7-zip.org" },
+    });
+    await flushPromises();
+    expect(wrapper.find("img").exists()).toBe(false);
+    expect(wrapper.text()).toContain("7");
   });
 });
 

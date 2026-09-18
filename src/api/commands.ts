@@ -1,6 +1,7 @@
 import type {
   BucketInfo,
   InstalledApp,
+  PackageEntry,
   RootInfo,
   ScoopConfig,
 } from "./types";
@@ -16,3 +17,7 @@ export const getScoopConfig = () => invoke<ScoopConfig>("get_scoop_config");
 export const runScoop = (args: string[], taskId: string) =>
   invoke<void>("run_scoop", { args, taskId });
 export const cancelTask = (taskId: string) => invoke<boolean>("cancel_task", { taskId });
+export const searchPackages = (query: string, limit?: number) =>
+  invoke<PackageEntry[]>("search_packages", { query, limit });
+export const refreshPackageIndex = () => invoke<number>("refresh_package_index");
+export const fetchIcon = (source: string) => invoke<string | null>("fetch_icon", { source });

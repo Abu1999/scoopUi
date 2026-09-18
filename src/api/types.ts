@@ -49,3 +49,14 @@ export interface ScoopTaskEndEvent {
   code: number | null;
   success: boolean;
 }
+
+export interface PackageEntry {
+  name: string;
+  bucket: string;
+  version: string;
+  description: string | null;
+  homepage: string | null;
+  license: string | null;
+  icon: string | null;
+  deprecated: boolean;
+}

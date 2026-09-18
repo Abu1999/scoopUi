@@ -7,11 +7,14 @@ import {
   addRoot,
   cancelTask,
   detectRoots,
+  fetchIcon,
   getActiveRoot,
   getScoopConfig,
   listBuckets,
   listInstalledApps,
+  refreshPackageIndex,
   runScoop,
+  searchPackages,
   setActiveRoot,
 } from "../api/commands";
 
@@ -45,5 +48,19 @@ describe("commands 包装", () => {
 
     await cancelTask("t-1");
     expect(invokeMock).toHaveBeenLastCalledWith("cancel_task", { taskId: "t-1" });
+  });
+
+  it("M2 命令名与参数符合后端契约", async () => {
+    await searchPackages("git");
+    expect(invokeMock).toHaveBeenLastCalledWith("search_packages", { query: "git", limit: undefined });
+
+    await searchPackages("git", 20);
+    expect(invokeMock).toHaveBeenLastCalledWith("search_packages", { query: "git", limit: 20 });
+
+    await refreshPackageIndex();
+    expect(invokeMock).toHaveBeenLastCalledWith("refresh_package_index", undefined);
+
+    await fetchIcon("https://gitforwindows.org");
+    expect(invokeMock).toHaveBeenLastCalledWith("fetch_icon", { source: "https://gitforwindows.org" });
   });
 });

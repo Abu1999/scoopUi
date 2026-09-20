@@ -133,4 +133,12 @@ mod tests {
         assert_eq!(compare_versions("1.0.0", "1.0"), Ordering::Greater);
         assert_eq!(compare_versions("1.0_1", "1.0_2"), Ordering::Less);
     }
+
+    #[test]
+    fn split_boundaries_and_case_folding() {
+        assert_eq!(compare_versions("1.0", "1.0a"), Ordering::Less);
+        assert_eq!(compare_versions("1.0A", "1.0a"), Ordering::Equal);
+        assert_eq!(compare_versions("1.0.0-1a", "1.0.0-1"), Ordering::Greater);
+        assert_eq!(compare_versions("1.0.0+build2", "1.0.0-build3"), Ordering::Less);
+    }
 }

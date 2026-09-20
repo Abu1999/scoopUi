@@ -7,4 +7,5 @@ pub mod manifest;
 pub mod root;
 pub mod scoopcmd;
 pub mod scoopops;
+pub mod updates;
 pub mod versions;

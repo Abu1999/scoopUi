@@ -101,6 +101,14 @@ describe("设置区块", () => {
     expect(mocks.setScoopSource).toHaveBeenCalledWith("gitee");
   });
 
+  it("下拉框显示当前源", () => {
+    const wrapper = mount(MirrorSection, { props: { info: info() } });
+    const scoopSelect = wrapper.findComponent({ name: "Select" });
+    expect(scoopSelect.props("value")).toBe("gitee");
+    const rows = wrapper.findAll(".bucket-row");
+    expect(rows[0].findComponent({ name: "Select" }).props("value")).toBe("gitee");
+  });
+
   it("加速区块保存自定义 URL_PROXY 与恢复默认", async () => {
     const wrapper = mount(AccelerationSection, { props: { info: info() } });
     await wrapper.find('input[placeholder="留空使用默认"]').setValue("https://my.proxy");

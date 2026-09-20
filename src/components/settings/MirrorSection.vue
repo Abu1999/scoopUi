@@ -8,7 +8,7 @@
     </n-descriptions>
     <div class="row">
       <n-select
-        :value="scoopSource"
+        :value="currentSource(info.scoop_remote, info.presets)"
         size="small"
         class="source-select"
         :disabled="busy || !info.presets"
@@ -34,7 +34,7 @@
           <td>
             <template v-if="b.presets">
               <n-select
-                :value="null"
+                :value="currentSource(b.remote, b.presets)"
                 size="tiny"
                 class="source-select"
                 :disabled="busy"
@@ -52,10 +52,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { NDescriptions, NDescriptionsItem, NSelect, NTable, useMessage } from "naive-ui";
 import { setBucketSource, setScoopSource } from "../../api/commands";
-import type { MirrorInfo } from "../../api/types";
+import type { MirrorInfo, MirrorPresets } from "../../api/types";
 import { useLogsStore } from "../../stores/logs";
 
 const props = defineProps<{ info: MirrorInfo }>();
@@ -63,18 +63,29 @@ const emit = defineEmits<{ changed: [] }>();
 const message = useMessage();
 const logs = useLogsStore();
 const busy = computed(() => logs.busy);
-const scoopSource = ref<string | null>(null);
 const sourceOptions = [
   { label: "官方 GitHub", value: "official" },
   { label: "gitee 镜像", value: "gitee" },
   { label: "201704 代理", value: "proxy" },
 ];
 
+function normalize(url: string): string {
+  return url.trim().replace(/\/+$/, "").replace(/\.git$/i, "").toLowerCase();
+}
+
+function currentSource(remote: string | null, presets: MirrorPresets | null): string | null {
+  if (!remote || !presets) return null;
+  const r = normalize(remote);
+  if (r === normalize(presets.official)) return "official";
+  if (r === normalize(presets.gitee)) return "gitee";
+  if (r === normalize(presets.proxy)) return "proxy";
+  return null;
+}
+
 async function applyScoop(source: string) {
   if (busy.value || !props.info.presets) return;
   try {
     const url = await setScoopSource(source);
-    scoopSource.value = source;
     message.success(`已切换 scoop 仓库源: ${url}`);
     emit("changed");
   } catch (e) {

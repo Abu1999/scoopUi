@@ -96,7 +96,7 @@ async function checkEnv() {
 
 <style scoped>
 .page {
-  padding: 16px;
+  padding: 16px 16px 48px;
   overflow: auto;
   height: 100%;
 }

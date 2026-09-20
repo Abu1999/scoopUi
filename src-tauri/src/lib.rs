@@ -26,6 +26,7 @@ pub fn run() {
             commands::runner::cancel_task,
             commands::search::search_packages,
             commands::search::refresh_package_index,
+            commands::updates::list_updates,
             commands::icons::fetch_icon,
             commands::ops::install_package,
             commands::ops::uninstall_package,

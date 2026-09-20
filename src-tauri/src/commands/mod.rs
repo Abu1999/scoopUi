@@ -6,6 +6,7 @@ pub mod ops;
 pub mod roots;
 pub mod runner;
 pub mod search;
+pub mod updates;
 
 use std::path::PathBuf;
 

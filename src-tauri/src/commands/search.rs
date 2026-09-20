@@ -24,6 +24,23 @@ pub(crate) fn store_index(state: &AppState, root: &Path, entries: Arc<Vec<Packag
     });
 }
 
+pub(crate) async fn load_index(
+    state: &AppState,
+    root: &Path,
+) -> Result<Arc<Vec<PackageEntry>>, AppError> {
+    if let Some(entries) = cached_index(state, root) {
+        return Ok(entries);
+    }
+    let build_root = root.to_path_buf();
+    let built = tauri::async_runtime::spawn_blocking(move || {
+        Arc::new(index::build(&build_root.join("buckets")))
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("索引构建失败: {e}")))?;
+    store_index(state, root, built.clone());
+    Ok(built)
+}
+
 #[tauri::command]
 pub async fn search_packages(
     state: State<'_, AppState>,
@@ -32,19 +49,7 @@ pub async fn search_packages(
 ) -> Result<Vec<PackageEntry>, AppError> {
     let ctx = context();
     let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
-    let entries = match cached_index(&state, &root) {
-        Some(entries) => entries,
-        None => {
-            let build_root = root.clone();
-            let built = tauri::async_runtime::spawn_blocking(move || {
-                Arc::new(index::build(&build_root.join("buckets")))
-            })
-            .await
-            .map_err(|e| AppError::Other(format!("索引构建失败: {e}")))?;
-            store_index(&state, &root, built.clone());
-            built
-        }
-    };
+    let entries = load_index(&state, &root).await?;
     Ok(index::search(&entries, &query, limit.unwrap_or(50)))
 }
 

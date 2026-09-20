@@ -2,7 +2,13 @@
   <div class="page">
     <div class="side">
       <n-alert v-if="apps.error" type="error" size="small" class="alert">{{ apps.error }}</n-alert>
-      <AppList :apps="apps.apps" :selected="apps.selectedName" class="list" @select="apps.select" />
+      <AppList
+        :apps="apps.apps"
+        :selected="apps.selectedName"
+        :updates="apps.updates"
+        class="list"
+        @select="apps.select"
+      />
     </div>
     <AppDetail :app="apps.selected" class="detail" />
   </div>

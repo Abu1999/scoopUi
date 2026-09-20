@@ -110,7 +110,7 @@ describe("AppIcon", () => {
 
 describe("AppList", () => {
   it("渲染应用行并点击 emit select", async () => {
-    const wrapper = mount(AppList, { props: { apps: [git], selected: null } });
+    const wrapper = mount(AppList, { props: { apps: [git], selected: null, updates: {} } });
     expect(wrapper.text()).toContain("git");
     expect(wrapper.text()).toContain("2.55.0.5");
     await wrapper.find(".row").trigger("click");
@@ -119,10 +119,21 @@ describe("AppList", () => {
 
   it("应用带 homepage 时列表展示抓取到的图标", async () => {
     fetchIcon.mockResolvedValue("data:image/png;base64,AA==");
-    const wrapper = mount(AppList, { props: { apps: [git], selected: null } });
+    const wrapper = mount(AppList, { props: { apps: [git], selected: null, updates: {} } });
     await flushPromises();
     expect(fetchIcon).toHaveBeenCalledWith("https://gitforwindows.org");
     expect(wrapper.find("img").attributes("src")).toBe("data:image/png;base64,AA==");
+  });
+
+  it("有可更新时显示徽标", () => {
+    const wrapper = mount(AppList, {
+      props: {
+        apps: [git],
+        selected: null,
+        updates: { git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false } },
+      },
+    });
+    expect(wrapper.text()).toContain("可更新");
   });
 });
 
@@ -161,6 +172,13 @@ describe("AppDetail", () => {
     await button!.trigger("click");
     await flushPromises();
     expect(messageError).toHaveBeenCalledWith("打开失败：无法打开链接");
+  });
+
+  it("可更新时展示新版本提示", () => {
+    const apps = useAppsStore();
+    apps.updates = { git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false } };
+    const wrapper = mount(AppDetail, { props: { app: git } });
+    expect(wrapper.text()).toContain("可更新至 2.55.0.5");
   });
 });
 

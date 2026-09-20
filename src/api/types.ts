@@ -50,6 +50,14 @@ export interface ScoopTaskEndEvent {
   success: boolean;
 }
 
+export interface UpdateInfo {
+  name: string;
+  current: string;
+  latest: string;
+  bucket: string;
+  hold: boolean;
+}
+
 export interface PackageEntry {
   name: string;
   bucket: string;

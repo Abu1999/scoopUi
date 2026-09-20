@@ -4,6 +4,7 @@ import type {
   PackageEntry,
   RootInfo,
   ScoopConfig,
+  UpdateInfo,
 } from "./types";
 import { invoke } from "./tauri";
 
@@ -41,3 +42,4 @@ export const bucketRemove = (name: string, taskId: string) =>
 export const runMaintenance = (op: string, taskId: string) =>
   invoke<void>("run_maintenance", { op, taskId });
 export const listKnownBuckets = () => invoke<string[]>("list_known_buckets");
+export const listUpdates = () => invoke<UpdateInfo[]>("list_updates");

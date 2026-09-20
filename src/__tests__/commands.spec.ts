@@ -16,6 +16,7 @@ import {
   listBuckets,
   listInstalledApps,
   listKnownBuckets,
+  listUpdates,
   refreshPackageIndex,
   runMaintenance,
   runScoop,
@@ -123,5 +124,10 @@ describe("commands 包装", () => {
   it("M3c 已知桶命令名符合后端契约", async () => {
     await listKnownBuckets();
     expect(invokeMock).toHaveBeenLastCalledWith("list_known_buckets", undefined);
+  });
+
+  it("M4a 更新列表命令名符合后端契约", async () => {
+    await listUpdates();
+    expect(invokeMock).toHaveBeenLastCalledWith("list_updates", undefined);
   });
 });

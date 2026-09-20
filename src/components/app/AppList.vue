@@ -13,6 +13,7 @@
         <div class="name">
           {{ app.name }}
           <span v-if="app.hold" class="hold">锁定</span>
+          <span v-if="updates[app.name]" class="update">可更新</span>
         </div>
         <div class="meta">
           {{ app.version }}
@@ -25,9 +26,9 @@
 
 <script setup lang="ts">
 import AppIcon from "./AppIcon.vue";
-import type { InstalledApp } from "../../api/types";
+import type { InstalledApp, UpdateInfo } from "../../api/types";
 
-defineProps<{ apps: InstalledApp[]; selected: string | null }>();
+defineProps<{ apps: InstalledApp[]; selected: string | null; updates: Record<string, UpdateInfo> }>();
 defineEmits<{ select: [name: string] }>();
 </script>
 
@@ -62,6 +63,14 @@ defineEmits<{ select: [name: string] }>();
   font-size: 11px;
   color: #f0a020;
   border: 1px solid #f0a020;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.update {
+  margin-left: 6px;
+  font-size: 11px;
+  color: #2080f0;
+  border: 1px solid #2080f0;
   border-radius: 3px;
   padding: 0 4px;
 }

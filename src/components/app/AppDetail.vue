@@ -10,6 +10,7 @@
             <n-tag v-if="app.hold" size="small" type="warning">锁定</n-tag>
           </div>
           <div class="sub">版本 {{ app.version }}<span v-if="app.bucket"> · 来自 {{ app.bucket }}</span><span v-if="app.architecture"> · {{ app.architecture }}</span></div>
+          <div v-if="update" class="update-line">可更新至 {{ update.latest }}</div>
         </div>
       </div>
 
@@ -72,6 +73,7 @@ const logs = useLogsStore();
 const roots = useRootsStore();
 const ui = useUiStore();
 const busy = computed(() => logs.busy);
+const update = computed(() => (props.app ? apps.updateFor(props.app.name) : null));
 
 async function afterTask(record: TaskRecord) {
   if (record.success) {
@@ -150,6 +152,11 @@ async function openDir() {
 }
 .sub {
   color: #888;
+  font-size: 13px;
+  margin-top: 4px;
+}
+.update-line {
+  color: #2080f0;
   font-size: 13px;
   margin-top: 4px;
 }

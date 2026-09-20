@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   addRoot: vi.fn(),
   listInstalledApps: vi.fn(),
   listBuckets: vi.fn(),
+  listUpdates: vi.fn(),
 }));
 vi.mock("../api/commands", () => mocks);
 
@@ -126,6 +127,27 @@ describe("stores", () => {
     await store.load();
     expect(store.apps).toEqual([]);
     expect(store.error).toContain("未找到");
+  });
+
+  it("apps.load 拉取可更新列表", async () => {
+    mocks.listInstalledApps.mockResolvedValue([appFixture]);
+    mocks.listUpdates.mockResolvedValue([
+      { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false },
+    ]);
+    const store = useAppsStore();
+    await store.load();
+    expect(store.updates["git"].latest).toBe("2.55.0.5");
+    expect(store.updateCount).toBe(1);
+    expect(store.updateFor("git")?.current).toBe("2.53.0.2");
+  });
+
+  it("apps.load 更新列表失败不影响主列表", async () => {
+    mocks.listInstalledApps.mockResolvedValue([appFixture]);
+    mocks.listUpdates.mockRejectedValue("未找到 scoop 根目录");
+    const store = useAppsStore();
+    await store.load();
+    expect(store.apps).toHaveLength(1);
+    expect(store.updates).toEqual({});
   });
 
   it("buckets.load 拉取列表", async () => {

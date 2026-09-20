@@ -2,6 +2,7 @@ pub mod apps;
 pub mod buckets;
 pub mod config;
 pub mod icons;
+pub mod mirrors;
 pub mod ops;
 pub mod roots;
 pub mod runner;

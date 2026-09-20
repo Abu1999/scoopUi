@@ -34,7 +34,14 @@ pub fn run() {
             commands::ops::set_hold,
             commands::ops::bucket_add,
             commands::ops::bucket_remove,
-            commands::ops::run_maintenance
+            commands::ops::run_maintenance,
+            commands::mirrors::get_mirror_info,
+            commands::mirrors::set_bucket_source,
+            commands::mirrors::set_scoop_source,
+            commands::mirrors::set_url_proxy,
+            commands::mirrors::set_proxy,
+            commands::mirrors::set_aria2,
+            commands::mirrors::test_url_proxy
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

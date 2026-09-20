@@ -1,7 +1,9 @@
 import type {
   BucketInfo,
   InstalledApp,
+  MirrorInfo,
   PackageEntry,
+  ProxyTest,
   RootInfo,
   ScoopConfig,
   UpdateInfo,
@@ -43,3 +45,12 @@ export const runMaintenance = (op: string, taskId: string) =>
   invoke<void>("run_maintenance", { op, taskId });
 export const listKnownBuckets = () => invoke<string[]>("list_known_buckets");
 export const listUpdates = () => invoke<UpdateInfo[]>("list_updates");
+export const getMirrorInfo = () => invoke<MirrorInfo>("get_mirror_info");
+export const setBucketSource = (bucket: string, source: string) =>
+  invoke<string>("set_bucket_source", { bucket, source });
+export const setScoopSource = (source: string) => invoke<string>("set_scoop_source", { source });
+export const setUrlProxy = (value: string | null) => invoke<void>("set_url_proxy", { value });
+export const setProxy = (value: string | null) => invoke<void>("set_proxy", { value });
+export const setAria2 = (enabled: boolean, split: number | null, maxConnection: number | null) =>
+  invoke<void>("set_aria2", { enabled, split, maxConnection });
+export const testUrlProxy = (proxy: string | null) => invoke<ProxyTest>("test_url_proxy", { proxy });

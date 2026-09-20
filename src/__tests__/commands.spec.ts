@@ -11,6 +11,7 @@ import {
   detectRoots,
   fetchIcon,
   getActiveRoot,
+  getMirrorInfo,
   getScoopConfig,
   installPackage,
   listBuckets,
@@ -22,7 +23,13 @@ import {
   runScoop,
   searchPackages,
   setActiveRoot,
+  setAria2,
+  setBucketSource,
   setHold,
+  setProxy,
+  setScoopSource,
+  setUrlProxy,
+  testUrlProxy,
   uninstallPackage,
   updatePackage,
 } from "../api/commands";
@@ -129,5 +136,28 @@ describe("commands 包装", () => {
   it("M4a 更新列表命令名符合后端契约", async () => {
     await listUpdates();
     expect(invokeMock).toHaveBeenLastCalledWith("list_updates", undefined);
+  });
+
+  it("M4b 镜像源命令名与参数符合后端契约", async () => {
+    await getMirrorInfo();
+    expect(invokeMock).toHaveBeenLastCalledWith("get_mirror_info", undefined);
+
+    await setBucketSource("main", "gitee");
+    expect(invokeMock).toHaveBeenLastCalledWith("set_bucket_source", { bucket: "main", source: "gitee" });
+
+    await setScoopSource("official");
+    expect(invokeMock).toHaveBeenLastCalledWith("set_scoop_source", { source: "official" });
+
+    await setUrlProxy(null);
+    expect(invokeMock).toHaveBeenLastCalledWith("set_url_proxy", { value: null });
+
+    await setProxy("127.0.0.1:7890");
+    expect(invokeMock).toHaveBeenLastCalledWith("set_proxy", { value: "127.0.0.1:7890" });
+
+    await setAria2(true, 5, 5);
+    expect(invokeMock).toHaveBeenLastCalledWith("set_aria2", { enabled: true, split: 5, maxConnection: 5 });
+
+    await testUrlProxy(null);
+    expect(invokeMock).toHaveBeenLastCalledWith("test_url_proxy", { proxy: null });
   });
 });

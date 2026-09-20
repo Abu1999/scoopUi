@@ -68,3 +68,36 @@ export interface PackageEntry {
   icon: string | null;
   deprecated: boolean;
 }
+
+export interface MirrorPresets {
+  official: string;
+  gitee: string;
+  proxy: string;
+}
+
+export interface BucketMirrorInfo {
+  name: string;
+  remote: string | null;
+  presets: MirrorPresets | null;
+}
+
+export interface MirrorInfo {
+  scoop_repo: string | null;
+  scoop_remote: string | null;
+  presets: MirrorPresets | null;
+  url_proxy: string | null;
+  default_url_proxy: string;
+  proxy: string | null;
+  buckets: BucketMirrorInfo[];
+  aria2_installed: boolean;
+  aria2_enabled: boolean;
+  aria2_split: number | null;
+  aria2_max_connection: number | null;
+}
+
+export interface ProxyTest {
+  exit_info: string | null;
+  in_china: boolean | null;
+  proxy_reachable: boolean;
+  proxy_info: string | null;
+}

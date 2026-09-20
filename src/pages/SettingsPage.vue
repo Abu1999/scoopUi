@@ -23,14 +23,21 @@
     </n-descriptions>
     <pre v-if="config" class="json">{{ configJson }}</pre>
     <div v-else class="empty">暂无配置信息</div>
+
+    <MirrorSection v-if="mirror" :info="mirror" @changed="loadMirror" />
+    <AccelerationSection v-if="mirror" :info="mirror" @changed="loadMirror" />
+    <Aria2Section v-if="mirror" :info="mirror" @changed="loadMirror" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { NButton, NDescriptions, NDescriptionsItem } from "naive-ui";
-import { getScoopConfig, runScoop } from "../api/commands";
-import type { ScoopConfig } from "../api/types";
+import { getMirrorInfo, getScoopConfig, runScoop } from "../api/commands";
+import type { MirrorInfo, ScoopConfig } from "../api/types";
+import AccelerationSection from "../components/settings/AccelerationSection.vue";
+import Aria2Section from "../components/settings/Aria2Section.vue";
+import MirrorSection from "../components/settings/MirrorSection.vue";
 import { useLogsStore } from "../stores/logs";
 import { useRootsStore } from "../stores/roots";
 import { useUiStore } from "../stores/ui";
@@ -39,6 +46,7 @@ const roots = useRootsStore();
 const logs = useLogsStore();
 const ui = useUiStore();
 const config = ref<ScoopConfig | null>(null);
+const mirror = ref<MirrorInfo | null>(null);
 
 const configJson = computed(() => (config.value ? JSON.stringify(config.value.values, null, 2) : ""));
 
@@ -52,7 +60,26 @@ async function loadConfig() {
   }
 }
 
-watch(() => roots.active?.path, loadConfig, { immediate: true });
+async function loadMirror() {
+  if (!roots.active) {
+    mirror.value = null;
+    return;
+  }
+  try {
+    mirror.value = await getMirrorInfo();
+  } catch {
+    mirror.value = null;
+  }
+}
+
+watch(
+  () => roots.active?.path,
+  () => {
+    loadConfig();
+    loadMirror();
+  },
+  { immediate: true },
+);
 
 async function checkEnv() {
   const taskId = `check-${Date.now()}`;

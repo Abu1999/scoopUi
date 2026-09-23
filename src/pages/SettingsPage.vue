@@ -24,6 +24,10 @@
     <pre v-if="config" class="json">{{ configJson }}</pre>
     <div v-else class="empty">暂无配置信息</div>
 
+    <n-alert v-if="mirrorError" type="error" size="small" class="mirror-error">
+      <div>镜像信息加载失败：{{ mirrorError }}</div>
+      <n-button size="tiny" class="retry" @click="loadMirror">重试</n-button>
+    </n-alert>
     <MirrorSection v-if="mirror" :info="mirror" @changed="loadMirror" />
     <AccelerationSection v-if="mirror" :info="mirror" @changed="loadMirror" />
     <Aria2Section v-if="mirror" :info="mirror" @changed="loadMirror" />
@@ -32,7 +36,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { NButton, NDescriptions, NDescriptionsItem } from "naive-ui";
+import { NAlert, NButton, NDescriptions, NDescriptionsItem } from "naive-ui";
 import { getMirrorInfo, getScoopConfig, runScoop } from "../api/commands";
 import type { MirrorInfo, ScoopConfig } from "../api/types";
 import AccelerationSection from "../components/settings/AccelerationSection.vue";
@@ -47,6 +51,7 @@ const logs = useLogsStore();
 const ui = useUiStore();
 const config = ref<ScoopConfig | null>(null);
 const mirror = ref<MirrorInfo | null>(null);
+const mirrorError = ref<string | null>(null);
 
 const configJson = computed(() => (config.value ? JSON.stringify(config.value.values, null, 2) : ""));
 
@@ -61,14 +66,16 @@ async function loadConfig() {
 }
 
 async function loadMirror() {
+  mirrorError.value = null;
   if (!roots.active) {
     mirror.value = null;
     return;
   }
   try {
     mirror.value = await getMirrorInfo();
-  } catch {
+  } catch (e) {
     mirror.value = null;
+    mirrorError.value = String(e);
   }
 }
 
@@ -121,5 +128,11 @@ h3:first-child {
 }
 .empty {
   color: #999;
+}
+.mirror-error {
+  margin-top: 12px;
+}
+.retry {
+  margin-top: 6px;
 }
 </style>

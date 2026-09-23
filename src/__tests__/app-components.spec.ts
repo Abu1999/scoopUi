@@ -8,13 +8,15 @@ import InstalledPage from "../pages/InstalledPage.vue";
 import SettingsPage from "../pages/SettingsPage.vue";
 import { useAppsStore } from "../stores/apps";
 import { useRootsStore } from "../stores/roots";
-import type { InstalledApp, RootInfo } from "../api/types";
+import type { InstalledApp, MirrorInfo, RootInfo } from "../api/types";
 
 const messageError = vi.hoisted(() => vi.fn());
 const fetchIcon = vi.hoisted(() => vi.fn());
 
 const listInstalledApps = vi.hoisted(() => vi.fn());
+const listUpdates = vi.hoisted(() => vi.fn().mockResolvedValue([]));
 const getScoopConfig = vi.hoisted(() => vi.fn());
+const getMirrorInfo = vi.hoisted(() => vi.fn());
 const runScoop = vi.hoisted(() => vi.fn());
 const otherCommands = vi.hoisted(() => ({
   detectRoots: vi.fn(),
@@ -31,7 +33,9 @@ const otherCommands = vi.hoisted(() => ({
 vi.mock("../api/commands", () => ({
   ...otherCommands,
   listInstalledApps,
+  listUpdates,
   getScoopConfig,
+  getMirrorInfo,
   runScoop,
   fetchIcon,
 }));
@@ -70,9 +74,29 @@ const git: InstalledApp = {
   app_dir: "C:\\scoop\\apps\\git",
 };
 
+const mirrorFixture: MirrorInfo = {
+  scoop_repo: "https://gitee.com/scoop-installer/scoop",
+  scoop_remote: "https://gitee.com/scoop-installer/scoop.git",
+  presets: {
+    official: "https://github.com/ScoopInstaller/scoop",
+    gitee: "https://gitee.com/scoop-installer/scoop",
+    proxy: "https://scoop.201704.xyz/https://github.com/ScoopInstaller/scoop",
+  },
+  url_proxy: null,
+  default_url_proxy: "https://scoop.201704.xyz",
+  proxy: null,
+  buckets: [],
+  aria2_installed: false,
+  aria2_enabled: true,
+  aria2_split: null,
+  aria2_max_connection: null,
+};
+
 beforeEach(() => {
   setActivePinia(createPinia());
   fetchIcon.mockReset().mockResolvedValue(null);
+  listUpdates.mockReset().mockResolvedValue([]);
+  getMirrorInfo.mockReset().mockResolvedValue(mirrorFixture);
 });
 
 describe("AppIcon", () => {
@@ -228,5 +252,37 @@ describe("SettingsPage", () => {
     await flushPromises();
     expect(getScoopConfig).toHaveBeenCalledTimes(2);
     expect(wrapper.text()).toContain("D:\\scoop\\config.json");
+  });
+
+  it("镜像信息加载失败时展示错误并可重试", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const roots = useRootsStore();
+    roots.active = {
+      path: "C:\\scoop",
+      valid: true,
+      source: "env",
+      is_active: true,
+      app_count: 1,
+      bucket_count: 1,
+      has_portable_config: false,
+      global_dir: null,
+    };
+    getScoopConfig.mockResolvedValue({
+      file_path: "C:\\scoop\\config.json",
+      portable: false,
+      values: {},
+    });
+    getMirrorInfo.mockRejectedValueOnce("无法读取 scoop 仓库地址");
+    const wrapper = mount(SettingsPage, { global: { plugins: [pinia] } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("镜像信息加载失败");
+    expect(wrapper.text()).toContain("无法读取 scoop 仓库地址");
+
+    const retry = wrapper.findAll("button").find((b) => b.text().includes("重试"));
+    await retry!.trigger("click");
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("镜像信息加载失败");
+    expect(wrapper.text()).toContain("镜像源");
   });
 });

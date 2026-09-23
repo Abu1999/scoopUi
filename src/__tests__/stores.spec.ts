@@ -150,6 +150,25 @@ describe("stores", () => {
     expect(store.updates).toEqual({});
   });
 
+  it("apps.load 旧响应不覆盖新响应", async () => {
+    let resolveFirst!: (v: unknown) => void;
+    let resolveSecond!: (v: unknown) => void;
+    mocks.listInstalledApps
+      .mockImplementationOnce(() => new Promise((r) => (resolveFirst = r)))
+      .mockImplementationOnce(() => new Promise((r) => (resolveSecond = r)));
+    mocks.listUpdates.mockResolvedValue([]);
+    const store = useAppsStore();
+    const first = store.load();
+    const second = store.load();
+    resolveSecond([{ ...appFixture, name: "7zip" }]);
+    await second;
+    resolveFirst([{ ...appFixture, name: "git" }]);
+    await first;
+    expect(store.apps.map((a) => a.name)).toEqual(["7zip"]);
+    expect(store.selectedName).toBe("7zip");
+    expect(store.loading).toBe(false);
+  });
+
   it("buckets.load 拉取列表", async () => {
     mocks.listBuckets.mockResolvedValue([{ name: "main", source: "https://x", is_git: true, manifest_count: 1641 }]);
     const store = useBucketsStore();

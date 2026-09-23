@@ -285,4 +285,41 @@ describe("SettingsPage", () => {
     expect(wrapper.text()).not.toContain("镜像信息加载失败");
     expect(wrapper.text()).toContain("镜像源");
   });
+
+  it("镜像加载旧响应不覆盖新响应", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const roots = useRootsStore();
+    const base = {
+      path: "C:\\scoop",
+      valid: true,
+      source: "env",
+      is_active: true,
+      app_count: 1,
+      bucket_count: 1,
+      has_portable_config: false,
+      global_dir: null,
+    };
+    roots.active = base;
+    getScoopConfig.mockResolvedValue({
+      file_path: "C:\\scoop\\config.json",
+      portable: false,
+      values: {},
+    });
+    let rejectFirst!: (e: unknown) => void;
+    let resolveSecond!: (v: MirrorInfo) => void;
+    getMirrorInfo
+      .mockImplementationOnce(() => new Promise((_, rej) => (rejectFirst = rej)))
+      .mockImplementationOnce(() => new Promise((res) => (resolveSecond = res)));
+    const wrapper = mount(SettingsPage, { global: { plugins: [pinia] } });
+    roots.active = { ...base, path: "D:\\scoop" };
+    await flushPromises();
+    resolveSecond(mirrorFixture);
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("镜像信息加载失败");
+    rejectFirst("旧请求失败");
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("镜像信息加载失败");
+    expect(wrapper.text()).toContain("镜像源");
+  });
 });

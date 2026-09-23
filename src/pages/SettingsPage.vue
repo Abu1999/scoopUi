@@ -52,6 +52,7 @@ const ui = useUiStore();
 const config = ref<ScoopConfig | null>(null);
 const mirror = ref<MirrorInfo | null>(null);
 const mirrorError = ref<string | null>(null);
+let mirrorSeq = 0;
 
 const configJson = computed(() => (config.value ? JSON.stringify(config.value.values, null, 2) : ""));
 
@@ -66,14 +67,18 @@ async function loadConfig() {
 }
 
 async function loadMirror() {
+  const seq = ++mirrorSeq;
   mirrorError.value = null;
   if (!roots.active) {
     mirror.value = null;
     return;
   }
   try {
-    mirror.value = await getMirrorInfo();
+    const info = await getMirrorInfo();
+    if (seq !== mirrorSeq) return;
+    mirror.value = info;
   } catch (e) {
+    if (seq !== mirrorSeq) return;
     mirror.value = null;
     mirrorError.value = String(e);
   }

@@ -109,9 +109,10 @@ pub fn get_mirror_info(state: State<'_, AppState>) -> Result<MirrorInfo, AppErro
 }
 
 fn validate_bucket_name(bucket: &str) -> Result<(), AppError> {
+    let normalized = bucket.trim_end_matches(|c| c == ' ' || c == '.');
     let invalid = bucket.is_empty()
-        || bucket == "."
-        || bucket == ".."
+        || normalized.is_empty()
+        || normalized != bucket
         || bucket
             .chars()
             .any(|c| matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control());
@@ -286,7 +287,10 @@ mod tests {
     fn validate_bucket_name_rejects_traversal_and_separators() {
         assert!(validate_bucket_name("main").is_ok());
         assert!(validate_bucket_name("my-bucket_2").is_ok());
-        for bad in ["", ".", "..", "../main", "a/b", "a\\b", "C:\\scoop", "a:b", "a*b", "a\nb"] {
+        for bad in [
+            "", ".", "..", ".. ", ".. .", "main.", "main ", " ", "../main", "a/b", "a\\b",
+            "C:\\scoop", "a:b", "a*b", "a\nb",
+        ] {
             assert!(validate_bucket_name(bad).is_err(), "{bad:?} 应被拒绝");
         }
     }

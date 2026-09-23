@@ -29,16 +29,16 @@ pub fn load(path: &Path) -> Value {
 }
 
 pub fn set_key(path: &Path, key: &str, value: Option<Value>) -> Result<(), AppError> {
-    let mut current = load(path);
-    if !current.is_object() {
-        current = Value::Object(Default::default());
+    let text = std::fs::read_to_string(path).ok();
+    let trimmed = text.as_deref().map(str::trim).filter(|t| !t.is_empty());
+    let parsed = trimmed.and_then(|t| serde_json::from_str::<Value>(t).ok());
+    if trimmed.is_some() && parsed.as_ref().map(|v| !v.is_object()).unwrap_or(true) {
+        let _ = std::fs::copy(path, path.with_extension("json.bak"));
     }
-    if let Ok(text) = std::fs::read_to_string(path) {
-        let trimmed = text.trim();
-        if !trimmed.is_empty() && serde_json::from_str::<Value>(trimmed).is_err() {
-            let _ = std::fs::copy(path, path.with_extension("json.bak"));
-        }
-    }
+    let mut current = match parsed {
+        Some(Value::Object(map)) => Value::Object(map),
+        _ => Value::Object(Default::default()),
+    };
     let obj = current.as_object_mut().expect("上面已保证是对象");
     let entries = std::mem::take(obj);
     for (k, v) in entries {
@@ -117,5 +117,25 @@ mod tests {
         set_key(&path, "proxy", Some(serde_json::json!("127.0.0.1:7890"))).unwrap();
         assert!(tmp.path().join("config.json.bak").is_file());
         assert_eq!(load(&path).get("proxy").and_then(|x| x.as_str()), Some("127.0.0.1:7890"));
+    }
+
+    #[test]
+    fn set_key_backs_up_valid_non_object_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("config.json");
+        std::fs::write(&path, "[1,2]").unwrap();
+        set_key(&path, "proxy", Some(serde_json::json!("127.0.0.1:7890"))).unwrap();
+        assert!(tmp.path().join("config.json.bak").is_file());
+        assert_eq!(load(&path).get("proxy").and_then(|x| x.as_str()), Some("127.0.0.1:7890"));
+    }
+
+    #[test]
+    fn set_key_keeps_object_file_without_backup() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("config.json");
+        std::fs::write(&path, r#"{"scoop_branch":"master"}"#).unwrap();
+        set_key(&path, "proxy", Some(serde_json::json!("127.0.0.1:7890"))).unwrap();
+        assert!(!tmp.path().join("config.json.bak").is_file());
+        assert_eq!(load(&path).get("scoop_branch").and_then(|x| x.as_str()), Some("master"));
     }
 }

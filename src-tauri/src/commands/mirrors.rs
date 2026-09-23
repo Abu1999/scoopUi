@@ -108,6 +108,19 @@ pub fn get_mirror_info(state: State<'_, AppState>) -> Result<MirrorInfo, AppErro
     })
 }
 
+fn validate_bucket_name(bucket: &str) -> Result<(), AppError> {
+    let invalid = bucket.is_empty()
+        || bucket == "."
+        || bucket == ".."
+        || bucket
+            .chars()
+            .any(|c| matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control());
+    if invalid {
+        return Err(AppError::Other(format!("桶名称非法: {bucket}")));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn set_bucket_source(
     state: State<'_, AppState>,
@@ -116,6 +129,7 @@ pub async fn set_bucket_source(
 ) -> Result<String, AppError> {
     let ctx = context();
     let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    validate_bucket_name(&bucket)?;
     let dir = root.join("buckets").join(&bucket);
     if !dir.is_dir() {
         return Err(AppError::Other(format!("桶不存在: {bucket}")));
@@ -262,4 +276,18 @@ pub async fn test_url_proxy(
     .await
     .map_err(|e| AppError::Other(format!("连通测试失败: {e}")))?;
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_bucket_name_rejects_traversal_and_separators() {
+        assert!(validate_bucket_name("main").is_ok());
+        assert!(validate_bucket_name("my-bucket_2").is_ok());
+        for bad in ["", ".", "..", "../main", "a/b", "a\\b", "C:\\scoop", "a:b", "a*b", "a\nb"] {
+            assert!(validate_bucket_name(bad).is_err(), "{bad:?} 应被拒绝");
+        }
+    }
 }

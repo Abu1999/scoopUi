@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
   setAria2: vi.fn().mockResolvedValue(undefined),
   testUrlProxy: vi.fn(),
   installPackage: vi.fn().mockResolvedValue(undefined),
-  getMirrorInfo: vi.fn(),
 }));
 vi.mock("../api/commands", () => mocks);
 
@@ -145,8 +144,6 @@ describe("设置区块", () => {
     await flushPromises();
     expect(wrapper.emitted("changed")).toBeTruthy();
 
-    mocks.getMirrorInfo.mockResolvedValue(info({ aria2_installed: true }));
-    await flushPromises();
     const save = wrapper.findAll("button").find((b) => b.text().includes("保存 aria2 设置"));
     await save!.trigger("click");
     await flushPromises();
@@ -173,5 +170,46 @@ describe("设置区块", () => {
     await flushPromises();
     expect(wrapper.text()).toContain("未获取到出口信息");
     expect(wrapper.text()).not.toContain("可直连");
+  });
+
+  it("镜像区块切换失败时提示错误且不通知刷新", async () => {
+    mocks.setBucketSource.mockRejectedValueOnce("该仓库不是官方 GitHub/gitee 已知仓库，无法一键切换源");
+    const wrapper = mount(MirrorSection, { props: { info: info() } });
+    const rows = wrapper.findAll(".bucket-row");
+    rows[0].findComponent({ name: "Select" }).vm.$emit("update:value", "official");
+    await flushPromises();
+    expect(messageError).toHaveBeenCalled();
+    expect(wrapper.emitted("changed")).toBeFalsy();
+  });
+
+  it("scoop 源切换失败时提示错误且不通知刷新", async () => {
+    mocks.setScoopSource.mockRejectedValueOnce("切换源失败: git 执行失败");
+    const wrapper = mount(MirrorSection, { props: { info: info() } });
+    wrapper.findComponent({ name: "Select" }).vm.$emit("update:value", "official");
+    await flushPromises();
+    expect(messageError).toHaveBeenCalled();
+    expect(wrapper.emitted("changed")).toBeFalsy();
+  });
+
+  it("连通测试失败时复位 loading 并提示错误", async () => {
+    mocks.testUrlProxy.mockRejectedValueOnce("连通测试失败");
+    const wrapper = mount(AccelerationSection, { props: { info: info() } });
+    const button = wrapper.findAllComponents({ name: "Button" }).find((b) => b.text().includes("连通测试"));
+    await button!.trigger("click");
+    await flushPromises();
+    expect(button!.props("loading")).toBe(false);
+    expect(messageError).toHaveBeenCalled();
+  });
+
+  it("aria2 安装失败时提示错误且不通知刷新", async () => {
+    const wrapper = mount(Aria2Section, { props: { info: info() } });
+    const install = wrapper.findAll("button").find((b) => b.text().includes("安装 aria2"));
+    await install!.trigger("click");
+    await flushPromises();
+    const taskId = mocks.installPackage.mock.calls[0][4];
+    useLogsStore().end({ taskId, code: 1, success: false });
+    await flushPromises();
+    expect(messageError).toHaveBeenCalled();
+    expect(wrapper.emitted("changed")).toBeFalsy();
   });
 });

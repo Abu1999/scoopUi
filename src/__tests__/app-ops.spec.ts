@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   fetchIcon: vi.fn().mockResolvedValue(null),
   detectRoots: vi.fn().mockResolvedValue([]),
   getActiveRoot: vi.fn().mockResolvedValue(null),
+  listUpdates: vi.fn().mockResolvedValue([]),
+  getMirrorInfo: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("../api/commands", () => mocks);
 

@@ -12,8 +12,8 @@
       <n-button size="small" :disabled="busy" @click="resetProxy">恢复默认</n-button>
       <n-button size="small" :loading="testing" :disabled="busy" @click="test">连通测试</n-button>
     </div>
-    <n-alert v-if="testResult" :type="testResult.in_china ? 'warning' : 'success'" size="small" class="alert">
-      <div>出口 IP：{{ testResult.exit_info ?? "未获取到" }}（{{ testResult.in_china ? "位于中国，建议启用代理" : "不在中国，可直连" }}）</div>
+    <n-alert v-if="testResult" :type="exitAlertType" size="small" class="alert">
+      <div>出口 IP：{{ testResult.exit_info ?? "未获取到" }}（{{ exitHint }}）</div>
       <div>
         代理前缀{{ testResult.proxy_reachable ? "可用" : "不可用"
         }}{{ testResult.proxy_reachable && testResult.proxy_info ? `（${testResult.proxy_info}）` : "" }}
@@ -44,6 +44,16 @@ const proxyInput = ref(props.info.url_proxy ?? "");
 const plainProxyInput = ref(props.info.proxy ?? "");
 const testing = ref(false);
 const testResult = ref<ProxyTest | null>(null);
+const exitAlertType = computed(() => {
+  if (testResult.value?.in_china === true) return "warning";
+  if (testResult.value?.in_china === false) return "success";
+  return "default";
+});
+const exitHint = computed(() => {
+  if (testResult.value?.in_china === true) return "位于中国，建议启用代理";
+  if (testResult.value?.in_china === false) return "不在中国，可直连";
+  return "未获取到出口信息，将按默认策略处理";
+});
 
 watch(
   () => props.info,

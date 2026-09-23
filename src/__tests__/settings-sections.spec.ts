@@ -159,4 +159,19 @@ describe("设置区块", () => {
     const save = wrapper.findAll("button").find((b) => b.text().includes("保存代理前缀"));
     expect(save!.attributes("disabled")).toBeDefined();
   });
+
+  it("加速区块出口未知时不误报可直连", async () => {
+    mocks.testUrlProxy.mockResolvedValue({
+      exit_info: null,
+      in_china: null,
+      proxy_reachable: false,
+      proxy_info: null,
+    });
+    const wrapper = mount(AccelerationSection, { props: { info: info() } });
+    const button = wrapper.findAll("button").find((b) => b.text().includes("连通测试"));
+    await button!.trigger("click");
+    await flushPromises();
+    expect(wrapper.text()).toContain("未获取到出口信息");
+    expect(wrapper.text()).not.toContain("可直连");
+  });
 });

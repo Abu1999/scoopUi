@@ -20,6 +20,10 @@ pub fn default_global_root(program_data: &Path) -> PathBuf {
     program_data.join("scoop")
 }
 
+pub fn profiles_dir(appdata: &Path) -> PathBuf {
+    settings_dir(appdata).join("profiles")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -32,5 +36,6 @@ mod tests {
         assert_eq!(user_config_home(Path::new("C:\\Users\\u")), PathBuf::from("C:\\Users\\u\\.config"));
         assert_eq!(default_root(Path::new("C:\\Users\\u")), PathBuf::from("C:\\Users\\u\\scoop"));
         assert_eq!(default_global_root(Path::new("C:\\ProgramData")), PathBuf::from("C:\\ProgramData\\scoop"));
+        assert_eq!(profiles_dir(&base), PathBuf::from("C:\\Users\\u\\AppData\\Roaming\\scoopui\\profiles"));
     }
 }

@@ -1,25 +1,26 @@
 import { defineStore } from "pinia";
 import { listInstalledApps, listUpdates } from "../api/commands";
 import type { InstalledApp, UpdateInfo } from "../api/types";
+import { appKey } from "../utils/appkey";
 
 export const useAppsStore = defineStore("apps", {
   state: () => ({
     apps: [] as InstalledApp[],
     updates: {} as Record<string, UpdateInfo>,
-    selectedName: null as string | null,
+    selectedKey: null as string | null,
     loading: false,
     error: null as string | null,
     seq: 0,
   }),
   getters: {
     selected(state): InstalledApp | null {
-      return state.apps.find((a) => a.name === state.selectedName) ?? null;
+      return state.apps.find((a) => appKey(a) === state.selectedKey) ?? null;
     },
     updateCount(state): number {
       return Object.keys(state.updates).length;
     },
     updateFor(state) {
-      return (name: string): UpdateInfo | null => state.updates[name] ?? null;
+      return (app: InstalledApp): UpdateInfo | null => state.updates[appKey(app)] ?? null;
     },
   },
   actions: {
@@ -34,12 +35,12 @@ export const useAppsStore = defineStore("apps", {
         try {
           const list = await listUpdates();
           if (seq !== this.seq) return;
-          this.updates = Object.fromEntries(list.map((u) => [u.name, u]));
+          this.updates = Object.fromEntries(list.map((u) => [appKey(u), u]));
         } catch {
           if (seq === this.seq) this.updates = {};
         }
-        if (!this.apps.some((a) => a.name === this.selectedName)) {
-          this.selectedName = this.apps[0]?.name ?? null;
+        if (!this.apps.some((a) => appKey(a) === this.selectedKey)) {
+          this.selectedKey = this.apps[0] ? appKey(this.apps[0]) : null;
         }
       } catch (e) {
         if (seq !== this.seq) return;
@@ -49,8 +50,8 @@ export const useAppsStore = defineStore("apps", {
         if (seq === this.seq) this.loading = false;
       }
     },
-    select(name: string) {
-      this.selectedName = name;
+    select(key: string) {
+      this.selectedKey = key;
     },
   },
 });

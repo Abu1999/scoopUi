@@ -23,6 +23,7 @@ export interface InstalledApp {
   persist: string[];
   bin: string[];
   app_dir: string;
+  global: boolean;
 }
 
 export interface BucketInfo {
@@ -56,6 +57,7 @@ export interface UpdateInfo {
   latest: string;
   bucket: string;
   hold: boolean;
+  global: boolean;
 }
 
 export interface PackageEntry {

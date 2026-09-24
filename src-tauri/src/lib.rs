@@ -41,7 +41,16 @@ pub fn run() {
             commands::mirrors::set_url_proxy,
             commands::mirrors::set_proxy,
             commands::mirrors::set_aria2,
-            commands::mirrors::test_url_proxy
+            commands::mirrors::test_url_proxy,
+            commands::profiles::list_profiles,
+            commands::profiles::get_profile,
+            commands::profiles::save_profile_from_current,
+            commands::profiles::import_profile,
+            commands::profiles::export_profile,
+            commands::profiles::rename_profile,
+            commands::profiles::delete_profile,
+            commands::profiles::profile_diff,
+            commands::profiles::apply_profile_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

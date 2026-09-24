@@ -4,6 +4,7 @@ pub mod config;
 pub mod icons;
 pub mod mirrors;
 pub mod ops;
+pub mod profiles;
 pub mod roots;
 pub mod runner;
 pub mod search;

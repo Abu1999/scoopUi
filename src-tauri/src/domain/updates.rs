@@ -13,6 +13,7 @@ pub struct UpdateInfo {
     pub latest: String,
     pub bucket: String,
     pub hold: bool,
+    pub global: bool,
 }
 
 pub fn compute(installed: &[InstalledApp], entries: &[PackageEntry]) -> Vec<UpdateInfo> {
@@ -38,6 +39,7 @@ pub fn compute(installed: &[InstalledApp], entries: &[PackageEntry]) -> Vec<Upda
                 latest: chosen.version.clone(),
                 bucket: chosen.bucket.clone(),
                 hold: app.hold,
+                global: app.global,
             });
         }
     }
@@ -66,6 +68,7 @@ mod tests {
             persist: vec![],
             bin: vec![],
             app_dir: format!("C:\\scoop\\apps\\{name}"),
+            global: false,
         }
     }
 
@@ -146,5 +149,14 @@ mod tests {
         let out = compute(&apps, &entries);
         let names: Vec<&str> = out.iter().map(|u| u.name.as_str()).collect();
         assert_eq!(names, vec!["alpha", "zeta"]);
+    }
+
+    #[test]
+    fn passes_global_flag() {
+        let mut g = app("git", "1.0", Some("main"), false);
+        g.global = true;
+        let out = compute(&[g], &[entry("git", "main", "2.0")]);
+        assert_eq!(out.len(), 1);
+        assert!(out[0].global);
     }
 }

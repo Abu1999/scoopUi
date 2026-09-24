@@ -19,7 +19,7 @@ fn scans_real_environment() {
         eprintln!("skip: 本机无有效 scoop 根目录");
         return;
     };
-    let apps = installed::scan(&root_path.join("apps"));
+    let apps = installed::scan(&root_path.join("apps"), false);
     println!("app_count={}", apps.len());
     assert!(!apps.is_empty(), "应至少扫出一个已装应用");
     assert!(apps.iter().all(|a| !a.version.is_empty()));

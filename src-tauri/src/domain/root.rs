@@ -89,7 +89,7 @@ pub fn info(path: &Path, source: &str, is_active: bool, global_dir: Option<&Path
         valid,
         source: source.to_string(),
         is_active,
-        app_count: if valid { crate::domain::installed::scan(&path.join("apps")).len() } else { 0 },
+        app_count: if valid { crate::domain::installed::scan(&path.join("apps"), false).len() } else { 0 },
         bucket_count: if valid { count_dirs(&path.join("buckets")) } else { 0 },
         has_portable_config: path.join("config.json").is_file(),
         global_dir: global_dir.map(|g| g.display().to_string()),

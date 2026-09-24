@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::domain::buckets::BucketInfo;
+use crate::domain::configfile;
 use crate::domain::installed::InstalledApp;
 use crate::error::AppError;
 
@@ -48,6 +49,23 @@ pub struct ProfileSummary {
     pub bucket_count: usize,
     pub app_count: usize,
     pub settings_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SettingDiff {
+    pub key: String,
+    pub current: Option<Value>,
+    pub target: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ProfileDiff {
+    pub missing_buckets: Vec<BucketRef>,
+    pub extra_buckets: Vec<String>,
+    pub bucket_source_conflicts: Vec<String>,
+    pub missing_apps: Vec<ProfileApp>,
+    pub extra_apps: Vec<ProfileApp>,
+    pub settings: Vec<SettingDiff>,
 }
 
 fn default_version() -> u32 {
@@ -326,6 +344,118 @@ pub fn parse_import(text: &str, name: &str) -> Result<Profile, AppError> {
     })
 }
 
+fn normalize_source(source: &str) -> String {
+    source
+        .trim()
+        .trim_end_matches('/')
+        .trim_end_matches(".git")
+        .to_ascii_lowercase()
+}
+
+fn settings_diff(profile: &Profile, config: &Value) -> Vec<SettingDiff> {
+    let mut out = Vec::new();
+    for key in SETTINGS_WHITELIST {
+        let Some(target) = profile.settings.get(key) else {
+            continue;
+        };
+        let current = config
+            .as_object()
+            .and_then(|o| o.iter().find(|(k, _)| k.eq_ignore_ascii_case(key)).map(|(_, v)| v.clone()));
+        if current.as_ref() != Some(target) {
+            out.push(SettingDiff {
+                key: key.to_string(),
+                current,
+                target: target.clone(),
+            });
+        }
+    }
+    out
+}
+
+pub fn diff(
+    profile: &Profile,
+    buckets: &[BucketInfo],
+    apps: &[InstalledApp],
+    config: &Value,
+) -> ProfileDiff {
+    let lower = |s: &str| s.to_lowercase();
+    let current_bucket_names: Vec<String> = buckets.iter().map(|b| lower(&b.name)).collect();
+    let mut missing_buckets: Vec<BucketRef> = profile
+        .buckets
+        .iter()
+        .filter(|b| !current_bucket_names.contains(&lower(&b.name)))
+        .cloned()
+        .collect();
+    let profile_bucket_names: Vec<String> = profile.buckets.iter().map(|b| lower(&b.name)).collect();
+    let mut extra_buckets: Vec<String> = buckets
+        .iter()
+        .filter(|b| !profile_bucket_names.contains(&lower(&b.name)))
+        .map(|b| b.name.clone())
+        .collect();
+    let mut bucket_source_conflicts: Vec<String> = Vec::new();
+    for pb in &profile.buckets {
+        let Some(cb) = buckets.iter().find(|b| b.name.eq_ignore_ascii_case(&pb.name)) else {
+            continue;
+        };
+        if let (Some(ps), Some(cs)) = (pb.source.as_deref(), cb.source.as_deref()) {
+            if normalize_source(ps) != normalize_source(cs) {
+                bucket_source_conflicts.push(pb.name.clone());
+            }
+        }
+    }
+    let app_key = |name: &str, global: bool| (lower(name), global);
+    let current_app_keys: Vec<(String, bool)> = apps.iter().map(|a| app_key(&a.name, a.global)).collect();
+    let mut missing_apps: Vec<ProfileApp> = profile
+        .apps
+        .iter()
+        .filter(|a| !current_app_keys.contains(&app_key(&a.name, a.global)))
+        .cloned()
+        .collect();
+    let profile_app_keys: Vec<(String, bool)> = profile.apps.iter().map(|a| app_key(&a.name, a.global)).collect();
+    let mut extra_apps: Vec<ProfileApp> = apps
+        .iter()
+        .filter(|a| !profile_app_keys.contains(&app_key(&a.name, a.global)))
+        .map(|a| ProfileApp {
+            name: a.name.clone(),
+            bucket: a.bucket.clone(),
+            global: a.global,
+        })
+        .collect();
+    let by_name = |a: &ProfileApp, b: &ProfileApp| {
+        a.name
+            .to_lowercase()
+            .cmp(&b.name.to_lowercase())
+            .then(a.global.cmp(&b.global))
+    };
+    missing_buckets.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    extra_buckets.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    bucket_source_conflicts.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    missing_apps.sort_by(by_name);
+    extra_apps.sort_by(by_name);
+    ProfileDiff {
+        missing_buckets,
+        extra_buckets,
+        bucket_source_conflicts,
+        missing_apps,
+        extra_apps,
+        settings: settings_diff(profile, config),
+    }
+}
+
+pub fn apply_settings(config_path: &Path, settings: &serde_json::Map<String, Value>) -> Result<(), AppError> {
+    let mut writes: Vec<(&str, &Value)> = Vec::new();
+    for key in SETTINGS_WHITELIST {
+        if let Some(value) = settings.get(key) {
+            validate_setting(key, value)?;
+            writes.push((key, value));
+        }
+    }
+    for (key, value) in writes {
+        configfile::set_key(config_path, key, Some(value.clone()))?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -524,5 +654,138 @@ mod tests {
         assert!(parse_import("{not json", "x").is_err());
         assert!(parse_import("{}", "x").is_err());
         assert!(parse_import(r#"{"buckets":[],"apps":[]}"#, "x").is_err());
+    }
+
+    fn bucket(name: &str, source: Option<&str>) -> BucketInfo {
+        BucketInfo {
+            name: name.to_string(),
+            source: source.map(|s| s.to_string()),
+            is_git: source.is_some(),
+            manifest_count: 0,
+        }
+    }
+
+    fn profile_with(
+        buckets: Vec<BucketRef>,
+        apps: Vec<ProfileApp>,
+        settings: serde_json::Map<String, Value>,
+    ) -> Profile {
+        Profile {
+            version: 1,
+            name: "p".to_string(),
+            created: 0,
+            buckets,
+            apps,
+            settings,
+        }
+    }
+
+    #[test]
+    fn diff_reports_missing_and_extra() {
+        let profile = profile_with(
+            vec![
+                BucketRef {
+                    name: "main".to_string(),
+                    source: Some("https://github.com/ScoopInstaller/Main".to_string()),
+                },
+                BucketRef {
+                    name: "extras".to_string(),
+                    source: None,
+                },
+            ],
+            vec![
+                ProfileApp {
+                    name: "git".to_string(),
+                    bucket: Some("main".to_string()),
+                    global: false,
+                },
+                ProfileApp {
+                    name: "7zip".to_string(),
+                    bucket: Some("main".to_string()),
+                    global: true,
+                },
+            ],
+            serde_json::json!({ "url_proxy": "https://scoop.201704.xyz" })
+                .as_object()
+                .unwrap()
+                .clone(),
+        );
+        let buckets = vec![
+            bucket("main", Some("https://github.com/ScoopInstaller/Main.git/")),
+            bucket("java", None),
+        ];
+        let apps = vec![
+            installed_app("git", Some("main"), false),
+            installed_app("python", Some("main"), false),
+            installed_app("7zip", Some("main"), true),
+        ];
+        let d = diff(&profile, &buckets, &apps, &serde_json::json!({ "url_proxy": "https://old" }));
+        assert_eq!(
+            d.missing_buckets.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(),
+            vec!["extras"]
+        );
+        assert_eq!(d.extra_buckets, vec!["java"]);
+        assert!(d.bucket_source_conflicts.is_empty());
+        assert!(d.missing_apps.is_empty());
+        assert_eq!(
+            d.extra_apps.iter().map(|a| a.name.as_str()).collect::<Vec<_>>(),
+            vec!["python"]
+        );
+        assert_eq!(d.settings.len(), 1);
+        assert_eq!(d.settings[0].key, "url_proxy");
+        assert_eq!(d.settings[0].current.as_ref().and_then(|v| v.as_str()), Some("https://old"));
+        assert_eq!(d.settings[0].target.as_str(), Some("https://scoop.201704.xyz"));
+    }
+
+    #[test]
+    fn diff_detects_source_conflicts_and_missing_global_app() {
+        let profile = profile_with(
+            vec![BucketRef {
+                name: "main".to_string(),
+                source: Some("https://github.com/ScoopInstaller/Main".to_string()),
+            }],
+            vec![ProfileApp {
+                name: "7zip".to_string(),
+                bucket: None,
+                global: true,
+            }],
+            serde_json::Map::new(),
+        );
+        let buckets = vec![bucket("main", Some("https://gitee.com/scoop-installer/Main"))];
+        let apps = vec![installed_app("7zip", Some("main"), false)];
+        let d = diff(&profile, &buckets, &apps, &serde_json::json!({}));
+        assert_eq!(d.bucket_source_conflicts, vec!["main"]);
+        assert_eq!(d.missing_apps.len(), 1);
+        assert!(d.missing_apps[0].global);
+        assert_eq!(d.extra_apps.len(), 1);
+        assert!(!d.extra_apps[0].global);
+        assert!(d.settings.is_empty());
+    }
+
+    #[test]
+    fn apply_settings_writes_only_whitelisted_present_keys() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("config.json");
+        std::fs::write(&path, r#"{"scoop_branch":"master","proxy":"old:1"}"#).unwrap();
+        let settings = serde_json::json!({"url_proxy":"https://scoop.201704.xyz","aria2-enabled":false})
+            .as_object()
+            .unwrap()
+            .clone();
+        apply_settings(&path, &settings).unwrap();
+        let v = crate::domain::configfile::load(&path);
+        assert_eq!(v.get("url_proxy").and_then(|x| x.as_str()), Some("https://scoop.201704.xyz"));
+        assert_eq!(v.get("aria2-enabled").and_then(|x| x.as_bool()), Some(false));
+        assert_eq!(v.get("proxy").and_then(|x| x.as_str()), Some("old:1"));
+        assert_eq!(v.get("scoop_branch").and_then(|x| x.as_str()), Some("master"));
+    }
+
+    #[test]
+    fn apply_settings_rejects_bad_types() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("config.json");
+        let settings = serde_json::json!({ "url_proxy": 42 }).as_object().unwrap().clone();
+        let err = apply_settings(&path, &settings).unwrap_err().to_string();
+        assert!(err.contains("settings.url_proxy 类型不符"), "实际: {err}");
+        assert!(!path.exists());
     }
 }

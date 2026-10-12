@@ -148,7 +148,7 @@ function doView(entry: MigrationEntry) {
 }
 .group-title {
   font-size: 13px;
-  color: var(--text);
+  color: var(--text-dim);
   margin-bottom: 6px;
 }
 .row {

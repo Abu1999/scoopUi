@@ -62,7 +62,7 @@ async function cancelLast() {
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  background: #fafafc;
+  background: var(--bg-soft);
 }
 .header {
   display: flex;

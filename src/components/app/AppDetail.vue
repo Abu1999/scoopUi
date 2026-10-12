@@ -152,7 +152,7 @@ async function openDir() {
   align-items: center;
 }
 .sub {
-  color: #888;
+  color: var(--text-dim);
   font-size: 13px;
   margin-top: 4px;
 }
@@ -163,7 +163,7 @@ async function openDir() {
 }
 .desc {
   margin: 14px 0 0;
-  color: #444;
+  color: var(--text);
 }
 .actions {
   display: flex;
@@ -178,7 +178,7 @@ async function openDir() {
 }
 .section-title {
   font-size: 13px;
-  color: #666;
+  color: var(--text-dim);
   margin-bottom: 6px;
 }
 .tag {
@@ -187,10 +187,10 @@ async function openDir() {
 .persist {
   font-family: Consolas, monospace;
   font-size: 12px;
-  color: #555;
+  color: var(--text);
 }
 .empty {
-  color: #999;
+  color: var(--text-dim);
   text-align: center;
   padding-top: 60px;
 }

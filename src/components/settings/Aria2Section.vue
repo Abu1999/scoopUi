@@ -121,7 +121,7 @@ h3 {
   width: 90px;
 }
 .label {
-  color: #888;
+  color: var(--text-dim);
   font-size: 12px;
 }
 </style>

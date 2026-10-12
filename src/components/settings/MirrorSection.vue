@@ -131,7 +131,7 @@ h3 {
   word-break: break-all;
 }
 .hint {
-  color: #999;
+  color: var(--text-dim);
   font-size: 12px;
 }
 </style>

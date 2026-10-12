@@ -50,7 +50,13 @@ pub fn run() {
             commands::profiles::rename_profile,
             commands::profiles::delete_profile,
             commands::profiles::profile_diff,
-            commands::profiles::apply_profile_settings
+            commands::profiles::apply_profile_settings,
+            commands::snapshots::list_snapshots,
+            commands::snapshots::create_snapshot,
+            commands::snapshots::delete_snapshot,
+            commands::snapshots::restore_snapshot_plan,
+            commands::snapshots::restore_snapshot_config,
+            commands::snapshots::restore_snapshot_buckets
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

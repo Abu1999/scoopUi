@@ -8,6 +8,7 @@ pub mod profiles;
 pub mod roots;
 pub mod runner;
 pub mod search;
+pub mod snapshots;
 pub mod updates;
 
 use std::path::PathBuf;

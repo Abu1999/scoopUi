@@ -18,6 +18,11 @@ fn known_roots(ctx: &crate::commands::Context, active: Option<&PathBuf>) -> Vec<
         .into_iter()
         .map(PathBuf::from)
         .collect();
+    roots.push(crate::domain::root::global_dir(
+        ctx.env_global.clone(),
+        ctx.config_global_path(),
+        &ctx.program_data,
+    ));
     if let Some(active) = active {
         roots.push(active.clone());
     }
@@ -58,7 +63,7 @@ pub fn run_registry_uninstall(
     let cmd = ScoopCommand {
         program: "cmd.exe".to_string(),
         args: vec!["/C".to_string()],
-        raw_args: vec![uninstall],
+        raw_args: vec![format!("\"{uninstall}\"")],
         envs: vec![],
         display: format!("uninstall {entry_key}"),
     };

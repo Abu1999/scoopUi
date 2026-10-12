@@ -495,6 +495,21 @@ mod tests {
     }
 
     #[test]
+    fn raw_args_supports_wrapped_multi_quote_command_line() {
+        let inner = r#""C:\Windows\System32\where.exe" cmd.exe "explorer.exe""#;
+        let cmd = ScoopCommand {
+            program: "cmd.exe".to_string(),
+            args: vec!["/C".to_string()],
+            raw_args: vec![format!("\"{inner}\"")],
+            envs: vec![],
+            display: "raw-wrap".to_string(),
+        };
+        let mut spawned = spawn(&cmd).unwrap();
+        let code = spawned.child.wait().unwrap().code();
+        assert_eq!(code, Some(0));
+    }
+
+    #[test]
     fn raw_args_preserve_quoted_program_path() {
         let cmd = ScoopCommand {
             program: "cmd.exe".to_string(),

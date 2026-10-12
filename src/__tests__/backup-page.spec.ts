@@ -36,7 +36,6 @@ vi.mock("naive-ui", async () => {
 
 import BackupPage from "../pages/BackupPage.vue";
 import { useLogsStore } from "../stores/logs";
-import { useSnapshotsStore } from "../stores/snapshots";
 import type { RestorePlan } from "../api/types";
 
 const summary = {

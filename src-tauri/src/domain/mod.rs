@@ -6,6 +6,7 @@ pub mod installed;
 pub mod manifest;
 pub mod mirrors;
 pub mod profiles;
+pub mod registry;
 pub mod root;
 pub mod scoopcmd;
 pub mod scoopops;

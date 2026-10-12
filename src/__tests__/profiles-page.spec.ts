@@ -174,4 +174,29 @@ describe("ProfilesPage", () => {
     await flushPromises();
     expect(messageError).toHaveBeenCalledWith("差异计算失败");
   });
+
+  it("首次挂载自动加载配置集列表", async () => {
+    mocks.listProfiles.mockResolvedValue([summary]);
+    mocks.getProfile.mockResolvedValue(profileFixture);
+    mocks.profileDiff.mockResolvedValue(diffFixture);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const wrapper = mount(ProfilesPage, { global: { plugins: [pinia] }, attachTo: document.body });
+    await flushPromises();
+    expect(mocks.listProfiles).toHaveBeenCalled();
+    expect(wrapper.text()).toContain("工作");
+  });
+
+  it("差异不可用时仍展示详情", async () => {
+    mocks.listProfiles.mockResolvedValue([summary]);
+    mocks.getProfile.mockResolvedValue(profileFixture);
+    mocks.profileDiff.mockRejectedValue("未找到可用的 scoop 根目录");
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const wrapper = mount(ProfilesPage, { global: { plugins: [pinia] }, attachTo: document.body });
+    await flushPromises();
+    expect(wrapper.text()).toContain("工作");
+    expect(wrapper.text()).toContain("差异暂不可用");
+    expect(wrapper.text()).not.toContain("与当前状态一致");
+  });
 });

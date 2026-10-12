@@ -146,4 +146,17 @@ describe("profiles store", () => {
     expect(mocks.saveProfileFromCurrent).toHaveBeenCalledWith("工作");
     expect(store.selectedName).toBe("工作");
   });
+
+  it("差异失败时仍展示详情", async () => {
+    mocks.listProfiles.mockResolvedValue([
+      { name: "工作", created: 1758614400, bucket_count: 1, app_count: 1, settings_count: 1 },
+    ]);
+    mocks.getProfile.mockResolvedValue(profileFixture);
+    mocks.profileDiff.mockRejectedValue("未找到可用的 scoop 根目录");
+    const store = useProfilesStore();
+    await store.load();
+    expect(store.detail?.name).toBe("工作");
+    expect(store.diff).toBeNull();
+    expect(store.error).toContain("未找到可用的 scoop 根目录");
+  });
 });

@@ -48,7 +48,8 @@
 
         <div class="section">
           <div class="section-title">与当前状态差异</div>
-          <div v-if="noDiff" class="hint">与当前状态一致</div>
+          <div v-if="!profiles.diff" class="hint">差异暂不可用</div>
+          <div v-else-if="noDiff" class="hint">与当前状态一致</div>
           <template v-else>
             <div v-if="profiles.diff!.missing_buckets.length" class="diff-line">
               缺少桶：{{ profiles.diff!.missing_buckets.map((b) => b.name).join("、") }}
@@ -150,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { NAlert, NButton, NCheckbox, NInput, NModal, NPopconfirm, useMessage } from "naive-ui";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import type { ProfileApp } from "../api/types";
@@ -172,6 +173,10 @@ const importPath = ref("");
 const importName = ref("");
 const showApply = ref(false);
 const uninstallExtra = ref(false);
+
+onMounted(() => {
+  profiles.load();
+});
 
 const settingsEntries = computed(() => Object.entries(profiles.detail?.settings ?? {}));
 

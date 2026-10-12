@@ -94,10 +94,19 @@ export const useProfilesStore = defineStore("profiles", {
     async loadDetail() {
       const name = this.selectedName;
       if (!name) return;
-      const [detail, diff] = await Promise.all([getProfile(name), profileDiff(name)]);
+      const [detailResult, diffResult] = await Promise.allSettled([getProfile(name), profileDiff(name)]);
       if (this.selectedName !== name) return;
-      this.detail = detail;
-      this.diff = diff;
+      this.detail = detailResult.status === "fulfilled" ? detailResult.value : null;
+      this.diff = diffResult.status === "fulfilled" ? diffResult.value : null;
+      const failure =
+        detailResult.status === "rejected"
+          ? detailResult.reason
+          : diffResult.status === "rejected"
+            ? diffResult.reason
+            : null;
+      if (failure !== null && failure !== undefined) {
+        this.error = String(failure);
+      }
     },
     async select(name: string) {
       this.selectedName = name;

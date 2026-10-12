@@ -35,10 +35,10 @@ pub struct RawEntry {
 }
 
 pub fn is_under_roots(path: &Path, roots: &[PathBuf]) -> bool {
-    let normalized = crate::domain::root::normalized(path);
+    let normalized = PathBuf::from(crate::domain::root::normalized(path));
     roots
         .iter()
-        .any(|r| normalized.starts_with(&crate::domain::root::normalized(r)))
+        .any(|r| normalized.starts_with(PathBuf::from(crate::domain::root::normalized(r))))
 }
 
 pub fn parse_entry(raw: &RawEntry, known_roots: &[PathBuf]) -> Option<RegistryApp> {
@@ -354,6 +354,9 @@ mod tests {
         let mut none = raw("App");
         none.install_location = None;
         assert!(!parse_entry(&none, &roots).unwrap().managed);
+        let mut near = raw("App");
+        near.install_location = Some(r"C:\scoop2\apps\app".to_string());
+        assert!(!parse_entry(&near, &roots).unwrap().managed);
     }
 
     #[test]

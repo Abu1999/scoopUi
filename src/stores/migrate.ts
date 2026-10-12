@@ -56,7 +56,9 @@ export const useMigrateStore = defineStore("migrate", {
           runRegistryUninstall(entry.app.key_path, taskId),
         );
         if (!uninstall.success) {
-          warning = `旧版卸载失败（退出码 ${uninstall.code ?? "未知"}），已继续安装`;
+          warning = `旧版卸载失败（退出码 ${uninstall.code ?? "未知"}）${
+            uninstall.hint ? "：" + uninstall.hint : ""
+          }，已继续安装`;
         }
       }
       const record = await runTask(`安装 ${match.name}`, (taskId) =>

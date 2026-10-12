@@ -108,6 +108,7 @@ describe("profiles store", () => {
     expect(await running).toBe(true);
     expect(store.steps.map((s) => s.status)).toEqual(["success", "success", "success"]);
     expect(mocks.listInstalledApps).toHaveBeenCalled();
+    expect(mocks.profileDiff).toHaveBeenCalledTimes(2);
   });
 
   it("apply 失败即停并标记剩余为待执行", async () => {

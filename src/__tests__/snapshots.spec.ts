@@ -167,4 +167,15 @@ describe("snapshots store", () => {
     expect(store.plan).toBeNull();
     expect(store.error).toContain("计划计算失败");
   });
+
+  it("计划未加载时先加载再恢复", async () => {
+    mocks.restoreSnapshotPlan.mockResolvedValue({ ...planFixture, config_present: false });
+    mocks.restoreSnapshotBuckets.mockResolvedValue({ reset: [], missing: [], skipped: [] });
+    const store = useSnapshotsStore();
+    store.selectedId = "100";
+    const running = store.restoreConfigAndBuckets();
+    await flushPromises();
+    expect(mocks.restoreSnapshotConfig).not.toHaveBeenCalled();
+    expect(await running).toBe(true);
+  });
 });

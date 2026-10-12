@@ -105,6 +105,9 @@ export const useSnapshotsStore = defineStore("snapshots", {
       this.restoring = true;
       useUiStore().logDrawerOpen = true;
       try {
+        if (!this.plan && this.selectedId) {
+          await this.loadPlan();
+        }
         if (!this.plan || this.plan.config_present) {
           await restoreSnapshotConfig(id);
         }

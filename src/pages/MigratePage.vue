@@ -36,7 +36,7 @@
             <span v-else class="hint">未匹配到软件包</span>
           </div>
           <div class="actions">
-            <n-button size="tiny" :disabled="busy || e.matches.length === 0" @click="doInstall(e)">安装</n-button>
+            <n-button size="tiny" :disabled="busy || e.app.managed || e.matches.length === 0" @click="doInstall(e)">安装</n-button>
             <n-button size="tiny" :disabled="e.matches.length === 0" @click="doView(e)">查看</n-button>
           </div>
         </div>

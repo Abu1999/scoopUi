@@ -129,4 +129,16 @@ describe("MigratePage", () => {
     expect(useUiStore().storeSearchQuery).toBe("app");
     expect(useUiStore().activePage).toBe("store");
   });
+
+  it("已管理条目的安装按钮禁用", async () => {
+    mocks.matchRegistryApps.mockResolvedValue([entry("Managed", true)]);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    await useMigrateStore().scan();
+    useMigrateStore().showManaged = true;
+    const wrapper = mount(MigratePage, { global: { plugins: [pinia] } });
+    await flushPromises();
+    const install = wrapper.findAll("button").find((b) => b.text() === "安装");
+    expect(install!.attributes("disabled")).toBeDefined();
+  });
 });

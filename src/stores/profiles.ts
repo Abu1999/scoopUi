@@ -214,6 +214,7 @@ export const useProfilesStore = defineStore("profiles", {
       this.applying = false;
       if (!failed) {
         await Promise.all([useAppsStore().load(), useBucketsStore().load()]);
+        await this.refreshDiff();
       }
       return !failed;
     },

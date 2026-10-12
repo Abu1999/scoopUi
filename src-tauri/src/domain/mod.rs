@@ -4,6 +4,7 @@ pub mod icons;
 pub mod index;
 pub mod installed;
 pub mod manifest;
+pub mod migrate;
 pub mod mirrors;
 pub mod profiles;
 pub mod registry;

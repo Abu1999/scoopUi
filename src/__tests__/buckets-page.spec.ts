@@ -126,4 +126,11 @@ describe("BucketsPage 操作", () => {
     const addButton = wrapper.findAll("button").find((b) => b.text().includes("添加软件源"));
     expect(addButton!.attributes("disabled")).toBeDefined();
   });
+
+  it("无软件源时显示空态", async () => {
+    mocks.listBuckets.mockResolvedValue([]);
+    const wrapper = mount(BucketsPage);
+    await flushPromises();
+    expect(wrapper.text()).toContain("还没有软件源");
+  });
 });

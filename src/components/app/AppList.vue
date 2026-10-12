@@ -38,7 +38,7 @@ defineEmits<{ select: [name: string] }>();
 .list {
   overflow: auto;
   height: 100%;
-  border-right: 1px solid #efeff5;
+  border-right: 1px solid var(--border);
 }
 .row {
   display: flex;
@@ -48,17 +48,17 @@ defineEmits<{ select: [name: string] }>();
   cursor: pointer;
 }
 .row:hover {
-  background: #f5f7fa;
+  background: var(--bg-hover);
 }
 .row.active {
-  background: #eaf3ff;
+  background: var(--bg-active);
 }
 .name {
   font-size: 14px;
 }
 .meta {
   font-size: 12px;
-  color: #888;
+  color: var(--text-dim);
 }
 .global {
   margin-left: 6px;
@@ -86,7 +86,7 @@ defineEmits<{ select: [name: string] }>();
 }
 .empty {
   padding: 24px;
-  color: #999;
+  color: var(--text-dim);
   text-align: center;
 }
 </style>

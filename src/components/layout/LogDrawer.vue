@@ -59,7 +59,7 @@ async function cancelLast() {
 <style scoped>
 .drawer {
   height: 200px;
-  border-top: 1px solid #efeff5;
+  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   background: #fafafc;
@@ -69,7 +69,7 @@ async function cancelLast() {
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  border-bottom: 1px solid #efeff5;
+  border-bottom: 1px solid var(--border);
 }
 .title {
   font-weight: 600;
@@ -97,6 +97,6 @@ async function cancelLast() {
   color: #18a058;
 }
 .empty {
-  color: #999;
+  color: var(--text-dim);
 }
 </style>

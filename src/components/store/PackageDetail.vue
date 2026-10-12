@@ -119,13 +119,13 @@ async function openHomepage() {
   align-items: center;
 }
 .sub {
-  color: #888;
+  color: var(--text-dim);
   font-size: 13px;
   margin-top: 4px;
 }
 .desc {
   margin: 14px 0 0;
-  color: #444;
+  color: var(--text);
 }
 .actions {
   display: flex;
@@ -138,7 +138,7 @@ async function openHomepage() {
 .install {
   margin-top: 20px;
   padding-top: 12px;
-  border-top: 1px solid #efeff5;
+  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -152,11 +152,11 @@ async function openHomepage() {
   width: 180px;
 }
 .install-source {
-  color: #999;
+  color: var(--text-dim);
   font-size: 12px;
 }
 .empty {
-  color: #999;
+  color: var(--text-dim);
   text-align: center;
   padding-top: 60px;
 }

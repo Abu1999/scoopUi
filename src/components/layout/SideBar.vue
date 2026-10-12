@@ -32,7 +32,7 @@ function onSelect(key: string) {
 <style scoped>
 .sidebar {
   width: 180px;
-  border-right: 1px solid #efeff5;
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
 }

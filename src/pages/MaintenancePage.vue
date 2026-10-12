@@ -108,7 +108,7 @@ h3 {
   font-size: 14px;
 }
 .tip {
-  color: #999;
+  color: var(--text-dim);
   font-size: 12px;
   margin: 0 0 14px;
 }
@@ -118,7 +118,7 @@ h3 {
   gap: 12px;
 }
 .card {
-  border: 1px solid #efeff5;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 12px;
   display: flex;
@@ -131,15 +131,15 @@ h3 {
   font-size: 13px;
 }
 .desc {
-  color: #888;
+  color: var(--text-dim);
   font-size: 12px;
   flex: 1;
 }
 .cmd {
   font-family: Consolas, monospace;
   font-size: 12px;
-  color: #555;
-  background: #f7f7f9;
+  color: var(--text);
+  background: var(--bg-soft);
   border-radius: 3px;
   padding: 2px 6px;
 }

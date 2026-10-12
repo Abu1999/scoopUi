@@ -140,7 +140,7 @@ h3:first-child {
 }
 .json {
   margin-top: 10px;
-  background: #f7f7f9;
+  background: var(--bg-soft);
   border-radius: 4px;
   padding: 10px;
   font-size: 12px;
@@ -148,7 +148,7 @@ h3:first-child {
   max-height: 240px;
 }
 .empty {
-  color: #999;
+  color: var(--text-dim);
 }
 .mirror-error {
   margin-top: 12px;

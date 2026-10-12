@@ -131,14 +131,14 @@ function doView(entry: MigrationEntry) {
   flex-wrap: wrap;
 }
 .count {
-  color: #888;
+  color: var(--text-dim);
   font-size: 12px;
 }
 .alert {
   margin-bottom: 12px;
 }
 .hint {
-  color: #999;
+  color: var(--text-dim);
   font-size: 13px;
   text-align: center;
   padding: 40px 0;
@@ -148,7 +148,7 @@ function doView(entry: MigrationEntry) {
 }
 .group-title {
   font-size: 13px;
-  color: #666;
+  color: var(--text);
   margin-bottom: 6px;
 }
 .row {
@@ -156,7 +156,7 @@ function doView(entry: MigrationEntry) {
   align-items: center;
   gap: 12px;
   padding: 8px 10px;
-  border-bottom: 1px solid #f5f5f7;
+  border-bottom: 1px solid var(--border);
 }
 .info {
   flex: 1;
@@ -167,7 +167,7 @@ function doView(entry: MigrationEntry) {
 }
 .meta {
   font-size: 12px;
-  color: #888;
+  color: var(--text-dim);
   word-break: break-all;
 }
 .match {
@@ -178,7 +178,7 @@ function doView(entry: MigrationEntry) {
 }
 .more {
   font-size: 12px;
-  color: #888;
+  color: var(--text-dim);
 }
 .actions {
   display: flex;

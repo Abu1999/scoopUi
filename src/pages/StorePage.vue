@@ -153,14 +153,14 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   padding: 8px;
-  border-bottom: 1px solid #efeff5;
+  border-bottom: 1px solid var(--border);
 }
 .search {
   flex: 1;
   min-width: 0;
 }
 .count {
-  color: #888;
+  color: var(--text-dim);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -169,7 +169,7 @@ onBeforeUnmount(() => {
 }
 .hint {
   padding: 32px;
-  color: #999;
+  color: var(--text-dim);
   text-align: center;
 }
 .results {
@@ -189,17 +189,17 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 .row:hover {
-  background: #f5f7fa;
+  background: var(--bg-hover);
 }
 .row.active {
-  background: #eaf3ff;
+  background: var(--bg-active);
 }
 .name {
   font-size: 14px;
 }
 .meta {
   font-size: 12px;
-  color: #888;
+  color: var(--text-dim);
 }
 .results.grid {
   display: grid;
@@ -213,16 +213,16 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   padding: 12px 8px;
-  border: 1px solid #efeff5;
+  border: 1px solid var(--border);
   border-radius: 6px;
   cursor: pointer;
 }
 .card:hover {
-  background: #f5f7fa;
+  background: var(--bg-hover);
 }
 .card.active {
   border-color: #2080f0;
-  background: #eaf3ff;
+  background: var(--bg-active);
 }
 .card-name {
   font-size: 13px;
@@ -231,18 +231,18 @@ onBeforeUnmount(() => {
 }
 .card-meta {
   font-size: 12px;
-  color: #888;
+  color: var(--text-dim);
 }
 .load-state {
   padding: 12px;
   text-align: center;
-  color: #999;
+  color: var(--text-dim);
   font-size: 12px;
   grid-column: 1 / -1;
 }
 .detail {
   width: 380px;
   flex-shrink: 0;
-  border-left: 1px solid #efeff5;
+  border-left: 1px solid var(--border);
 }
 </style>

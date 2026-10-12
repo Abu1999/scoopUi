@@ -190,7 +190,7 @@ async function doInstallAll() {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid #efeff5;
+  border-right: 1px solid var(--border);
 }
 .side-head {
   display: flex;
@@ -208,20 +208,20 @@ async function doInstallAll() {
 .row {
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid #f5f5f7;
+  border-bottom: 1px solid var(--border);
 }
 .row:hover {
-  background: #f5f7fa;
+  background: var(--bg-hover);
 }
 .row.active {
-  background: #eaf3ff;
+  background: var(--bg-active);
 }
 .row .name {
   font-size: 14px;
 }
 .row .meta {
   font-size: 12px;
-  color: #888;
+  color: var(--text-dim);
   word-break: break-all;
 }
 .detail {
@@ -241,7 +241,7 @@ async function doInstallAll() {
   font-weight: 600;
 }
 .sub {
-  color: #888;
+  color: var(--text-dim);
   font-size: 12px;
   margin-top: 4px;
   word-break: break-all;
@@ -255,12 +255,12 @@ async function doInstallAll() {
 }
 .section-title {
   font-size: 13px;
-  color: #666;
+  color: var(--text-dim);
   margin-bottom: 6px;
 }
 .diff-line {
   font-size: 13px;
-  color: #444;
+  color: var(--text);
   margin-bottom: 4px;
   word-break: break-all;
 }
@@ -275,7 +275,7 @@ async function doInstallAll() {
   font-family: Consolas, monospace;
 }
 .dim {
-  color: #888;
+  color: var(--text-dim);
   font-size: 12px;
   word-break: break-all;
 }
@@ -287,7 +287,7 @@ async function doInstallAll() {
   padding: 0 4px;
 }
 .hint {
-  color: #999;
+  color: var(--text-dim);
   font-size: 12px;
 }
 .install-all {
@@ -302,7 +302,7 @@ async function doInstallAll() {
 .step .status-text {
   width: 48px;
   flex-shrink: 0;
-  color: #888;
+  color: var(--text-dim);
 }
 .step.success .status-text {
   color: #18a058;
@@ -315,7 +315,7 @@ async function doInstallAll() {
 }
 .empty {
   padding: 24px;
-  color: #999;
+  color: var(--text-dim);
   text-align: center;
 }
 </style>

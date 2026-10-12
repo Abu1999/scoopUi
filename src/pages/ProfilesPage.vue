@@ -327,7 +327,7 @@ async function doApply() {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid #efeff5;
+  border-right: 1px solid var(--border);
 }
 .side-head {
   display: flex;
@@ -345,20 +345,20 @@ async function doApply() {
 .row {
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid #f5f5f7;
+  border-bottom: 1px solid var(--border);
 }
 .row:hover {
-  background: #f5f7fa;
+  background: var(--bg-hover);
 }
 .row.active {
-  background: #eaf3ff;
+  background: var(--bg-active);
 }
 .row .name {
   font-size: 14px;
 }
 .row .meta {
   font-size: 12px;
-  color: #888;
+  color: var(--text-dim);
 }
 .detail {
   flex: 1;
@@ -377,7 +377,7 @@ async function doApply() {
   font-weight: 600;
 }
 .sub {
-  color: #888;
+  color: var(--text-dim);
   font-size: 12px;
   margin-top: 4px;
 }
@@ -390,12 +390,12 @@ async function doApply() {
 }
 .section-title {
   font-size: 13px;
-  color: #666;
+  color: var(--text-dim);
   margin-bottom: 6px;
 }
 .diff-line {
   font-size: 13px;
-  color: #444;
+  color: var(--text);
   margin-bottom: 4px;
 }
 .line {
@@ -409,7 +409,7 @@ async function doApply() {
   font-family: Consolas, monospace;
 }
 .dim {
-  color: #888;
+  color: var(--text-dim);
   font-size: 12px;
   word-break: break-all;
 }
@@ -421,7 +421,7 @@ async function doApply() {
   padding: 0 4px;
 }
 .hint {
-  color: #999;
+  color: var(--text-dim);
   font-size: 12px;
 }
 .step {
@@ -433,7 +433,7 @@ async function doApply() {
 .step .status {
   width: 48px;
   flex-shrink: 0;
-  color: #888;
+  color: var(--text-dim);
 }
 .step.success .status {
   color: #18a058;
@@ -446,7 +446,7 @@ async function doApply() {
 }
 .empty {
   padding: 24px;
-  color: #999;
+  color: var(--text-dim);
   text-align: center;
 }
 .modal {

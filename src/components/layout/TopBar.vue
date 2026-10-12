@@ -81,7 +81,7 @@ async function pickRoot() {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  border-bottom: 1px solid #efeff5;
+  border-bottom: 1px solid var(--border);
   gap: 12px;
 }
 .left,
@@ -91,7 +91,7 @@ async function pickRoot() {
   gap: 8px;
 }
 .label {
-  color: #666;
+  color: var(--text-dim);
   font-size: 13px;
 }
 </style>

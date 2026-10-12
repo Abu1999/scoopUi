@@ -72,6 +72,7 @@ const stubs = {
   BucketsPage: true,
   MaintenancePage: true,
   SettingsPage: true,
+  ProfilesPage: true,
   PlaceholderPage: true,
 };
 
@@ -126,5 +127,13 @@ describe("AppShell 启动时序", () => {
     useUiStore().setPage("maintenance");
     const wrapper = mount(AppShell, { global: { plugins: [pinia], stubs } });
     expect(wrapper.find("maintenance-page-stub").exists()).toBe(true);
+  });
+
+  it("配置集页渲染 ProfilesPage 而非占位", () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useUiStore().setPage("profiles");
+    const wrapper = mount(AppShell, { global: { plugins: [pinia], stubs } });
+    expect(wrapper.find("profiles-page-stub").exists()).toBe(true);
   });
 });

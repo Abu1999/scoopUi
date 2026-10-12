@@ -56,7 +56,10 @@ pub fn run() {
             commands::snapshots::delete_snapshot,
             commands::snapshots::restore_snapshot_plan,
             commands::snapshots::restore_snapshot_config,
-            commands::snapshots::restore_snapshot_buckets
+            commands::snapshots::restore_snapshot_buckets,
+            commands::migrate::scan_installed_registry,
+            commands::migrate::match_registry_apps,
+            commands::migrate::run_registry_uninstall
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

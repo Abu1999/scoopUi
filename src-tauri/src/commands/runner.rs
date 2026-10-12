@@ -33,16 +33,12 @@ pub(crate) fn ensure_idle(tasks: &HashMap<String, u32>) -> Result<(), AppError> 
     }
 }
 
-pub(crate) fn spawn_task(
+pub(crate) fn spawn_command(
     app: &AppHandle,
     state: &AppState,
-    args: Vec<String>,
+    cmd: scoopcmd::ScoopCommand,
     task_id: String,
 ) -> Result<(), AppError> {
-    let ctx = context();
-    let root_path = resolve_active_root(&ctx, state).ok_or(AppError::NoRoot)?;
-    let global = root::global_dir(ctx.env_global.clone(), ctx.config_global_path(), &ctx.program_data);
-    let cmd = scoopcmd::build(&root_path, Some(&global), &args)?;
     let spawned = {
         let mut tasks = state.tasks.lock().unwrap();
         ensure_idle(&tasks)?;
@@ -79,6 +75,19 @@ pub(crate) fn spawn_task(
         }
     });
     Ok(())
+}
+
+pub(crate) fn spawn_task(
+    app: &AppHandle,
+    state: &AppState,
+    args: Vec<String>,
+    task_id: String,
+) -> Result<(), AppError> {
+    let ctx = context();
+    let root_path = resolve_active_root(&ctx, state).ok_or(AppError::NoRoot)?;
+    let global = root::global_dir(ctx.env_global.clone(), ctx.config_global_path(), &ctx.program_data);
+    let cmd = scoopcmd::build(&root_path, Some(&global), &args)?;
+    spawn_command(app, state, cmd, task_id)
 }
 
 #[tauri::command(async)]

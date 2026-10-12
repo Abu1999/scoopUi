@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { NButton, NSelect, NTag, useMessage } from "naive-ui";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useRootsStore } from "../../stores/roots";
@@ -38,6 +38,7 @@ const apps = useAppsStore();
 const buckets = useBucketsStore();
 const ui = useUiStore();
 const message = useMessage();
+const refreshing = ref(false);
 
 const rootOptions = computed(() =>
   roots.roots.map((r) => ({
@@ -49,7 +50,9 @@ const rootOptions = computed(() =>
 const rootValue = computed(
   () => rootOptions.value.find((o) => o.is_active)?.value ?? roots.active?.path ?? null,
 );
-const anyLoading = computed(() => roots.loading || apps.loading || buckets.loading);
+const anyLoading = computed(
+  () => refreshing.value || roots.loading || apps.loading || buckets.loading,
+);
 
 async function onSelectRoot(path: string) {
   await roots.setActive(path);
@@ -61,8 +64,19 @@ async function onSelectRoot(path: string) {
 }
 
 async function refresh() {
-  await Promise.all([roots.load(), apps.load(), buckets.load()]);
-  if (roots.error) message.error(roots.error);
+  if (anyLoading.value) return;
+  refreshing.value = true;
+  const started = Date.now();
+  try {
+    await Promise.all([roots.load(), apps.load(), buckets.load()]);
+    if (roots.error) message.error(roots.error);
+  } finally {
+    const elapsed = Date.now() - started;
+    if (elapsed < 500) {
+      await new Promise((resolve) => setTimeout(resolve, 500 - elapsed));
+    }
+    refreshing.value = false;
+  }
 }
 
 async function pickRoot() {

@@ -8,10 +8,11 @@
         <StorePage v-else-if="ui.activePage === 'store'" />
         <BucketsPage v-else-if="ui.activePage === 'buckets'" />
         <MaintenancePage v-else-if="ui.activePage === 'maintenance'" />
+        <MigratePage v-else-if="ui.activePage === 'migrate'" />
         <ProfilesPage v-else-if="ui.activePage === 'profiles'" />
         <BackupPage v-else-if="ui.activePage === 'backup'" />
         <SettingsPage v-else-if="ui.activePage === 'settings'" />
-        <PlaceholderPage v-else :title="placeholderTitle" />
+        <PlaceholderPage v-else title="开发中" />
       </div>
       <LogDrawer />
     </div>
@@ -19,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { onMounted } from "vue";
 import SideBar from "./SideBar.vue";
 import TopBar from "./TopBar.vue";
 import LogDrawer from "./LogDrawer.vue";
@@ -27,6 +28,7 @@ import InstalledPage from "../../pages/InstalledPage.vue";
 import StorePage from "../../pages/StorePage.vue";
 import BucketsPage from "../../pages/BucketsPage.vue";
 import MaintenancePage from "../../pages/MaintenancePage.vue";
+import MigratePage from "../../pages/MigratePage.vue";
 import ProfilesPage from "../../pages/ProfilesPage.vue";
 import BackupPage from "../../pages/BackupPage.vue";
 import SettingsPage from "../../pages/SettingsPage.vue";
@@ -38,10 +40,6 @@ import { useAppsStore } from "../../stores/apps";
 import { useBucketsStore } from "../../stores/buckets";
 
 const ui = useUiStore();
-const placeholders: Record<string, string> = {
-  migrate: "环境迁移（M6：注册表扫描与接管）",
-};
-const placeholderTitle = computed(() => placeholders[ui.activePage] ?? "开发中");
 
 onMounted(async () => {
   await useLogsStore()

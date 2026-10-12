@@ -71,6 +71,7 @@ const stubs = {
   StorePage: true,
   BucketsPage: true,
   MaintenancePage: true,
+  MigratePage: true,
   SettingsPage: true,
   ProfilesPage: true,
   BackupPage: true,
@@ -144,5 +145,13 @@ describe("AppShell 启动时序", () => {
     useUiStore().setPage("backup");
     const wrapper = mount(AppShell, { global: { plugins: [pinia], stubs } });
     expect(wrapper.find("backup-page-stub").exists()).toBe(true);
+  });
+
+  it("环境迁移页渲染 MigratePage 而非占位", () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useUiStore().setPage("migrate");
+    const wrapper = mount(AppShell, { global: { plugins: [pinia], stubs } });
+    expect(wrapper.find("migrate-page-stub").exists()).toBe(true);
   });
 });

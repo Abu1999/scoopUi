@@ -70,7 +70,7 @@ const logs = useLogsStore();
 const roots = useRootsStore();
 const ui = useUiStore();
 const version = ref("");
-const globalInstall = ref(false);
+const globalInstall = ref(true);
 const busy = computed(() => logs.busy);
 
 async function doInstall() {

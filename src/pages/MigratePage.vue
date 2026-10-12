@@ -63,7 +63,7 @@ const migrate = useMigrateStore();
 const logs = useLogsStore();
 const message = useMessage();
 const busy = computed(() => logs.busy);
-const uninstallFirst = ref(false);
+const uninstallFirst = ref(true);
 
 const groups = computed<Group[]>(() => {
   const result: Group[] = [

@@ -5,6 +5,7 @@
         <n-button size="small" @click="doCreate">创建快照</n-button>
       </div>
       <n-alert v-if="snapshots.error" type="error" size="small" class="alert">{{ snapshots.error }}</n-alert>
+      <div class="page-tip">快照：记录「此刻装了什么」（配置 + 软件源 + 应用清单），用于还原或迁移</div>
       <div class="list">
         <div v-if="snapshots.list.length === 0" class="empty">还没有快照，点击「创建快照」保存当前状态</div>
         <div
@@ -199,6 +200,12 @@ async function doInstallAll() {
 }
 .alert {
   margin: 0 10px 8px;
+}
+.page-tip {
+  padding: 0 10px 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.5;
 }
 .list {
   flex: 1;

@@ -83,17 +83,19 @@ describe("MigratePage", () => {
     await useMigrateStore().scan();
     const wrapper = mount(MigratePage, { global: { plugins: [pinia] } });
     await flushPromises();
+    await wrapper.findAll('[role="checkbox"]')[1].trigger("click");
     const install = wrapper.findAll("button").find((b) => b.text() === "安装");
     await install!.trigger("click");
     await flushPromises();
     const taskId = mocks.installPackage.mock.calls[0][4];
     useLogsStore().end({ taskId, code: 0, success: true });
     await flushPromises();
+    expect(mocks.runRegistryUninstall).not.toHaveBeenCalled();
     expect(mocks.installPackage).toHaveBeenCalledWith("app", "main", null, false, expect.any(String));
     expect(messageSuccess).toHaveBeenCalled();
   });
 
-  it("勾选先卸载旧版时先调用卸载命令", async () => {
+  it("默认勾选先卸载旧版并在安装前调用卸载命令", async () => {
     mocks.matchRegistryApps.mockResolvedValue([entry("App", false)]);
     mocks.runRegistryUninstall.mockResolvedValue(undefined);
     mocks.installPackage.mockResolvedValue(undefined);
@@ -103,7 +105,7 @@ describe("MigratePage", () => {
     const wrapper = mount(MigratePage, { global: { plugins: [pinia] } });
     await flushPromises();
     const checkboxes = wrapper.findAll('[role="checkbox"]');
-    await checkboxes[1].trigger("click");
+    expect(checkboxes[1].classes()).toContain("n-checkbox--checked");
     const install = wrapper.findAll("button").find((b) => b.text() === "安装");
     await install!.trigger("click");
     await flushPromises();

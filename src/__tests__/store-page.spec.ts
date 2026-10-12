@@ -214,6 +214,7 @@ describe("StorePage", () => {
     mocks.searchPackages.mockResolvedValue([pkg("git", { description: "git" })]);
     const wrapper = mount(StorePage);
     await flushPromises();
+    await wrapper.find('[role="checkbox"]').trigger("click");
     const button = wrapper.findAll("button").find((b) => b.text().includes("安装"));
     expect(button).toBeTruthy();
     await button!.trigger("click");
@@ -226,12 +227,18 @@ describe("StorePage", () => {
     expect(mocks.detectRoots).toHaveBeenCalled();
   });
 
+  it("全局安装默认勾选", async () => {
+    mocks.searchPackages.mockResolvedValue([pkg("git")]);
+    const wrapper = mount(StorePage);
+    await flushPromises();
+    expect(wrapper.find('[role="checkbox"]').classes()).toContain("n-checkbox--checked");
+  });
+
   it("版本与全局选项传入安装命令", async () => {
     mocks.searchPackages.mockResolvedValue([pkg("git")]);
     const wrapper = mount(StorePage);
     await flushPromises();
     await wrapper.find('input[placeholder="版本（留空 = 最新）"]').setValue("2.7.0");
-    await wrapper.find('[role="checkbox"]').trigger("click");
     const button = wrapper.findAll("button").find((b) => b.text().includes("安装"));
     await button!.trigger("click");
     await flushPromises();

@@ -6,6 +6,7 @@
         <n-button size="small" @click="doImport">导入</n-button>
       </div>
       <n-alert v-if="profiles.error" type="error" size="small" class="alert">{{ profiles.error }}</n-alert>
+      <div class="page-tip">配置集：定义「要装什么」（软件源 + 应用 + 下载设置），可反复应用到任何环境</div>
       <div class="list">
         <div v-if="profiles.list.length === 0" class="empty">从当前状态另存或导入配置集</div>
         <div
@@ -102,7 +103,7 @@
       </template>
     </div>
 
-    <n-modal v-model:show="showSave" preset="card" title="另存当前状态" class="modal-sm">
+    <n-modal v-model:show="showSave" preset="card" title="另存当前状态" style="width: 380px; max-width: 90vw">
       <n-input v-model:value="newName" placeholder="配置集名称" />
       <template #footer>
         <n-button size="small" @click="showSave = false">取消</n-button>
@@ -110,7 +111,7 @@
       </template>
     </n-modal>
 
-    <n-modal v-model:show="showRename" preset="card" title="重命名配置集" class="modal-sm">
+    <n-modal v-model:show="showRename" preset="card" title="重命名配置集" style="width: 380px; max-width: 90vw">
       <n-input v-model:value="renameName" placeholder="新名称" />
       <template #footer>
         <n-button size="small" @click="showRename = false">取消</n-button>
@@ -118,7 +119,7 @@
       </template>
     </n-modal>
 
-    <n-modal v-model:show="showImport" preset="card" title="导入配置集" class="modal-sm">
+    <n-modal v-model:show="showImport" preset="card" title="导入配置集" style="width: 380px; max-width: 90vw">
       <div class="hint">{{ importPath }}</div>
       <n-input v-model:value="importName" placeholder="配置集名称" />
       <template #footer>
@@ -129,7 +130,12 @@
       </template>
     </n-modal>
 
-    <n-modal v-model:show="showApply" preset="card" title="应用配置集" class="modal">
+    <n-modal
+      v-model:show="showApply"
+      preset="card"
+      title="应用配置集"
+      style="width: 50%; max-width: 720px; min-width: 360px"
+    >
       <div v-if="profiles.diff" class="hint">
         缺少软件源 {{ profiles.diff.missing_buckets.length }} · 缺少应用 {{ profiles.diff.missing_apps.length }} ·
         多余应用 {{ profiles.diff.extra_apps.length }} · 设置变化 {{ profiles.diff.settings.length }}
@@ -337,6 +343,12 @@ async function doApply() {
 .alert {
   margin: 0 10px 8px;
 }
+.page-tip {
+  padding: 0 10px 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
 .list {
   flex: 1;
   min-height: 0;
@@ -448,11 +460,5 @@ async function doApply() {
   padding: 24px;
   color: var(--text-dim);
   text-align: center;
-}
-.modal {
-  width: 460px;
-}
-.modal-sm {
-  width: 360px;
 }
 </style>

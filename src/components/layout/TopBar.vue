@@ -4,7 +4,7 @@
       <span class="label">根目录</span>
       <n-select
         data-testid="topbar-root-select"
-        style="width: 340px"
+        style="flex: 1 1 220px; min-width: 0; max-width: 340px"
         size="small"
         :value="rootValue"
         :options="rootOptions"
@@ -83,12 +83,23 @@ async function pickRoot() {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   gap: 12px;
+  flex-wrap: wrap;
+  row-gap: 8px;
 }
 .left,
 .right {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.right {
+  flex: 0 0 auto;
+  justify-content: flex-end;
 }
 .label {
   color: var(--text-dim);

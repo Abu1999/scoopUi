@@ -72,6 +72,7 @@ import AppIcon from "../components/app/AppIcon.vue";
 import PackageDetail from "../components/store/PackageDetail.vue";
 import { usePackagesStore } from "../stores/packages";
 import { useRootsStore } from "../stores/roots";
+import { useUiStore } from "../stores/ui";
 
 const pkgs = usePackagesStore();
 const roots = useRootsStore();
@@ -120,6 +121,14 @@ watch(
 watch([() => pkgs.results.length, view], ensureFilled);
 
 onMounted(() => {
+  const ui = useUiStore();
+  const pending = ui.storeSearchQuery;
+  if (pending !== null) {
+    input.value = pending;
+    ui.storeSearchQuery = null;
+    pkgs.search(pending);
+    return;
+  }
   pkgs.search(pkgs.query);
 });
 

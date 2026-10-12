@@ -179,3 +179,27 @@ export interface RestoreBucketsResult {
   missing: BucketRef[];
   skipped: string[];
 }
+
+export interface RegistryApp {
+  key_path: string;
+  name: string;
+  version: string | null;
+  publisher: string | null;
+  install_location: string | null;
+  uninstall_string: string | null;
+  exe_names: string[];
+  managed: boolean;
+}
+
+export interface MigrationMatch {
+  name: string;
+  bucket: string;
+  confidence: string;
+  version: string;
+  description: string | null;
+}
+
+export interface MigrationEntry {
+  app: RegistryApp;
+  matches: MigrationMatch[];
+}

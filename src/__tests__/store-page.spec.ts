@@ -46,6 +46,7 @@ import StorePage from "../pages/StorePage.vue";
 import type { PackageEntry } from "../api/types";
 import { useLogsStore } from "../stores/logs";
 import { useRootsStore } from "../stores/roots";
+import { useUiStore } from "../stores/ui";
 
 function pkg(name: string, extra: Partial<PackageEntry> = {}): PackageEntry {
   return {
@@ -261,5 +262,13 @@ describe("StorePage", () => {
     useLogsStore().end({ taskId, code: 1, success: false });
     await flushPromises();
     expect(messageError).toHaveBeenCalledWith("安装失败（退出码 1），详见任务日志");
+  });
+
+  it("消费来自迁移页的搜索意图", async () => {
+    useUiStore().storeSearchQuery = "7zip";
+    mount(StorePage);
+    await flushPromises();
+    expect(mocks.searchPackages).toHaveBeenCalledWith("7zip", 50);
+    expect(useUiStore().storeSearchQuery).toBeNull();
   });
 });

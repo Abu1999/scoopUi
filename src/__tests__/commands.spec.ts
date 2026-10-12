@@ -27,6 +27,7 @@ import {
   listProfiles,
   listSnapshots,
   listUpdates,
+  matchRegistryApps,
   profileDiff,
   refreshPackageIndex,
   renameProfile,
@@ -34,8 +35,10 @@ import {
   restoreSnapshotConfig,
   restoreSnapshotPlan,
   runMaintenance,
+  runRegistryUninstall,
   runScoop,
   saveProfileFromCurrent,
+  scanInstalledRegistry,
   searchPackages,
   setActiveRoot,
   setAria2,
@@ -225,5 +228,19 @@ describe("commands 包装", () => {
 
     await restoreSnapshotBuckets("100");
     expect(invokeMock).toHaveBeenLastCalledWith("restore_snapshot_buckets", { id: "100" });
+  });
+
+  it("M6 迁移命令名与参数符合后端契约", async () => {
+    await scanInstalledRegistry();
+    expect(invokeMock).toHaveBeenLastCalledWith("scan_installed_registry", undefined);
+
+    await matchRegistryApps();
+    expect(invokeMock).toHaveBeenLastCalledWith("match_registry_apps", undefined);
+
+    await runRegistryUninstall("HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\X", "t-1");
+    expect(invokeMock).toHaveBeenLastCalledWith("run_registry_uninstall", {
+      entryKey: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\X",
+      taskId: "t-1",
+    });
   });
 });

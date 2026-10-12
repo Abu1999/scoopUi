@@ -1,3 +1,4 @@
+pub mod app_settings;
 pub mod apps;
 pub mod buckets;
 pub mod config;

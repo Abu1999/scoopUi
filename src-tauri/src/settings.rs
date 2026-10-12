@@ -9,6 +9,8 @@ pub struct Settings {
     pub known_roots: Vec<String>,
     #[serde(default)]
     pub active_root: Option<String>,
+    #[serde(default)]
+    pub theme: Option<String>,
 }
 
 pub fn load(dir: &Path) -> Settings {
@@ -44,11 +46,24 @@ mod tests {
         let s = Settings {
             known_roots: vec!["C:\\scoop".into()],
             active_root: Some("C:\\scoop".into()),
+            theme: None,
         };
         save(tmp.path(), &s).unwrap();
         let loaded = load(tmp.path());
         assert_eq!(loaded.known_roots, vec!["C:\\scoop".to_string()]);
         assert_eq!(loaded.active_root.as_deref(), Some("C:\\scoop"));
+    }
+
+    #[test]
+    fn roundtrip_preserves_theme() {
+        let tmp = tempfile::tempdir().unwrap();
+        let s = Settings {
+            known_roots: vec![],
+            active_root: None,
+            theme: Some("dark".to_string()),
+        };
+        save(tmp.path(), &s).unwrap();
+        assert_eq!(load(tmp.path()).theme.as_deref(), Some("dark"));
     }
 
     #[test]

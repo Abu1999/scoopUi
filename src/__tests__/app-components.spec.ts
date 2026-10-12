@@ -18,6 +18,8 @@ const listUpdates = vi.hoisted(() => vi.fn().mockResolvedValue([]));
 const getScoopConfig = vi.hoisted(() => vi.fn());
 const getMirrorInfo = vi.hoisted(() => vi.fn());
 const runScoop = vi.hoisted(() => vi.fn());
+const getAppSettings = vi.hoisted(() => vi.fn().mockResolvedValue({ theme: "system" }));
+const setTheme = vi.hoisted(() => vi.fn());
 const otherCommands = vi.hoisted(() => ({
   detectRoots: vi.fn(),
   getActiveRoot: vi.fn(),
@@ -38,6 +40,8 @@ vi.mock("../api/commands", () => ({
   getMirrorInfo,
   runScoop,
   fetchIcon,
+  getAppSettings,
+  setTheme,
 }));
 
 vi.mock("naive-ui", async () => {
@@ -340,5 +344,28 @@ describe("SettingsPage", () => {
     await flushPromises();
     expect(wrapper.text()).not.toContain("镜像信息加载失败");
     expect(wrapper.text()).toContain("镜像源");
+  });
+
+  it("切换外观调用 setTheme", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const roots = useRootsStore();
+    roots.active = {
+      path: "C:\\scoop",
+      valid: true,
+      source: "env",
+      is_active: true,
+      app_count: 1,
+      bucket_count: 1,
+      has_portable_config: false,
+      global_dir: null,
+    };
+    getScoopConfig.mockResolvedValue({ file_path: "C:\\scoop\\config.json", portable: false, values: {} });
+    getMirrorInfo.mockResolvedValue(mirrorFixture);
+    const wrapper = mount(SettingsPage, { global: { plugins: [pinia] } });
+    await flushPromises();
+    wrapper.findComponent({ name: "RadioGroup" }).vm.$emit("update:value", "dark");
+    await flushPromises();
+    expect(setTheme).toHaveBeenCalledWith("dark");
   });
 });

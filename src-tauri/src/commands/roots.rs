@@ -145,6 +145,7 @@ mod tests {
             &settings::Settings {
                 known_roots: vec![],
                 active_root: Some(path.to_string()),
+                theme: None,
             },
         )
         .unwrap();

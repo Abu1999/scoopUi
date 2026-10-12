@@ -203,3 +203,7 @@ export interface MigrationEntry {
   app: RegistryApp;
   matches: MigrationMatch[];
 }
+
+export interface AppSettings {
+  theme: string;
+}

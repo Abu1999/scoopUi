@@ -16,6 +16,15 @@
       <n-button size="small" :disabled="!roots.active" @click="checkEnv">检查环境（scoop --version）</n-button>
     </div>
 
+    <h3>外观</h3>
+    <div class="actions">
+      <n-radio-group :value="appearance.theme" size="small" @update:value="onThemeChange">
+        <n-radio-button value="system">跟随系统</n-radio-button>
+        <n-radio-button value="light">浅色</n-radio-button>
+        <n-radio-button value="dark">深色</n-radio-button>
+      </n-radio-group>
+    </div>
+
     <h3>配置文件</h3>
     <n-descriptions v-if="config" :column="1" size="small" bordered>
       <n-descriptions-item label="路径">{{ config.file_path }}</n-descriptions-item>
@@ -36,12 +45,14 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { NAlert, NButton, NDescriptions, NDescriptionsItem } from "naive-ui";
+import { NAlert, NButton, NDescriptions, NDescriptionsItem, NRadioButton, NRadioGroup } from "naive-ui";
 import { getMirrorInfo, getScoopConfig, runScoop } from "../api/commands";
 import type { MirrorInfo, ScoopConfig } from "../api/types";
 import AccelerationSection from "../components/settings/AccelerationSection.vue";
 import Aria2Section from "../components/settings/Aria2Section.vue";
 import MirrorSection from "../components/settings/MirrorSection.vue";
+import { useAppearanceStore } from "../stores/appearance";
+import type { ThemePreference } from "../stores/appearance";
 import { useLogsStore } from "../stores/logs";
 import { useRootsStore } from "../stores/roots";
 import { useUiStore } from "../stores/ui";
@@ -49,10 +60,15 @@ import { useUiStore } from "../stores/ui";
 const roots = useRootsStore();
 const logs = useLogsStore();
 const ui = useUiStore();
+const appearance = useAppearanceStore();
 const config = ref<ScoopConfig | null>(null);
 const mirror = ref<MirrorInfo | null>(null);
 const mirrorError = ref<string | null>(null);
 let mirrorSeq = 0;
+
+function onThemeChange(value: ThemePreference) {
+  appearance.setThemePreference(value).catch(() => {});
+}
 
 const configJson = computed(() => (config.value ? JSON.stringify(config.value.values, null, 2) : ""));
 

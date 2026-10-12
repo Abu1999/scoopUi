@@ -59,7 +59,9 @@ pub fn run() {
             commands::snapshots::restore_snapshot_buckets,
             commands::migrate::scan_installed_registry,
             commands::migrate::match_registry_apps,
-            commands::migrate::run_registry_uninstall
+            commands::migrate::run_registry_uninstall,
+            commands::app_settings::get_app_settings,
+            commands::app_settings::set_theme
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

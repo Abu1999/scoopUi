@@ -1,4 +1,5 @@
 import type {
+  AppSettings,
   BucketInfo,
   InstalledApp,
   MigrationEntry,
@@ -85,3 +86,6 @@ export const scanInstalledRegistry = () => invoke<RegistryApp[]>("scan_installed
 export const matchRegistryApps = () => invoke<MigrationEntry[]>("match_registry_apps");
 export const runRegistryUninstall = (entryKey: string, taskId: string) =>
   invoke<void>("run_registry_uninstall", { entryKey, taskId });
+
+export const getAppSettings = () => invoke<AppSettings>("get_app_settings");
+export const setTheme = (theme: string) => invoke<void>("set_theme", { theme });

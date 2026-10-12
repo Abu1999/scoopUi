@@ -16,6 +16,7 @@ import {
   exportProfile,
   fetchIcon,
   getActiveRoot,
+  getAppSettings,
   getMirrorInfo,
   getProfile,
   getScoopConfig,
@@ -46,6 +47,7 @@ import {
   setHold,
   setProxy,
   setScoopSource,
+  setTheme,
   setUrlProxy,
   testUrlProxy,
   uninstallPackage,
@@ -242,5 +244,13 @@ describe("commands 包装", () => {
       entryKey: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\X",
       taskId: "t-1",
     });
+  });
+
+  it("M7 应用设置命令名与参数符合后端契约", async () => {
+    await getAppSettings();
+    expect(invokeMock).toHaveBeenLastCalledWith("get_app_settings", undefined);
+
+    await setTheme("dark");
+    expect(invokeMock).toHaveBeenLastCalledWith("set_theme", { theme: "dark" });
   });
 });

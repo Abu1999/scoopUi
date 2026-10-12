@@ -42,6 +42,24 @@ pub struct SnapshotSummary {
     pub profile_count: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RestorePlan {
+    pub root: String,
+    pub root_matches: bool,
+    pub config_path: String,
+    pub config_present: bool,
+    pub reset_buckets: Vec<BucketRef>,
+    pub missing_buckets: Vec<BucketRef>,
+    pub missing_apps: Vec<SnapshotApp>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RestoreBucketsResult {
+    pub reset: Vec<String>,
+    pub missing: Vec<BucketRef>,
+    pub skipped: Vec<String>,
+}
+
 pub fn validate_id(id: &str) -> Result<(), AppError> {
     if id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
         return Err(AppError::Other(format!("快照 ID 非法: {id}")));
@@ -193,6 +211,113 @@ pub fn delete(dir: &Path, id: &str) -> Result<(), AppError> {
     Ok(())
 }
 
+pub fn plan(
+    dir: &Path,
+    id: &str,
+    current_root: &Path,
+    current_config_path: &Path,
+    current_buckets: &[BucketInfo],
+    current_apps: &[InstalledApp],
+) -> Result<RestorePlan, AppError> {
+    let meta = load_meta(dir, id)?;
+    let mut buckets = load_buckets(dir, id)?;
+    let mut apps = load_apps(dir, id)?;
+    let lower = |s: &str| s.to_lowercase();
+    let current_names: Vec<String> = current_buckets.iter().map(|b| lower(&b.name)).collect();
+    let mut reset_buckets: Vec<BucketRef> = Vec::new();
+    let mut missing_buckets: Vec<BucketRef> = Vec::new();
+    buckets.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    for b in buckets {
+        if current_names.contains(&lower(&b.name)) {
+            if b.source.as_deref().map(is_remote_url).unwrap_or(false) {
+                reset_buckets.push(b);
+            }
+        } else {
+            missing_buckets.push(b);
+        }
+    }
+    let app_key = |name: &str, global: bool| (lower(name), global);
+    let current_keys: Vec<(String, bool)> = current_apps.iter().map(|a| app_key(&a.name, a.global)).collect();
+    apps.retain(|a| !current_keys.contains(&app_key(&a.name, a.global)));
+    apps.sort_by(|a, b| {
+        a.name
+            .to_lowercase()
+            .cmp(&b.name.to_lowercase())
+            .then(a.global.cmp(&b.global))
+    });
+    Ok(RestorePlan {
+        root: meta.root.clone(),
+        root_matches: crate::domain::root::normalized(current_root)
+            == crate::domain::root::normalized(Path::new(&meta.root)),
+        config_path: current_config_path.display().to_string(),
+        config_present: meta.config_present,
+        reset_buckets,
+        missing_buckets,
+        missing_apps: apps,
+    })
+}
+
+pub fn restore_config(dir: &Path, id: &str, config_path: &Path) -> Result<(), AppError> {
+    let meta = load_meta(dir, id)?;
+    if !meta.config_present {
+        return Err(AppError::Other("该快照未包含配置文件".to_string()));
+    }
+    let text = std::fs::read_to_string(snapshot_dir(dir, id).join("config.json"))
+        .map_err(|_| AppError::Other(format!("快照文件损坏: {id}")))?;
+    serde_json::from_str::<serde_json::Value>(&text)
+        .map_err(|_| AppError::Other(format!("快照文件损坏: {id}")))?;
+    if config_path.is_file() {
+        let _ = std::fs::copy(config_path, config_path.with_extension("json.bak"));
+    }
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let tmp = config_path.with_extension("json.tmp");
+    std::fs::write(&tmp, text)?;
+    std::fs::rename(&tmp, config_path)?;
+    Ok(())
+}
+
+fn safe_bucket_name(name: &str) -> bool {
+    !name.is_empty()
+        && name == name.trim_end_matches([' ', '.'])
+        && !name
+            .chars()
+            .any(|c| matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control())
+}
+
+pub fn restore_buckets(dir: &Path, id: &str, root: &Path) -> Result<RestoreBucketsResult, AppError> {
+    let buckets = load_buckets(dir, id)?;
+    let mut reset: Vec<String> = Vec::new();
+    let mut missing: Vec<BucketRef> = Vec::new();
+    let mut skipped: Vec<String> = Vec::new();
+    for b in buckets {
+        if !safe_bucket_name(&b.name) {
+            skipped.push(b.name);
+            continue;
+        }
+        let local = root.join("buckets").join(&b.name);
+        if !local.is_dir() {
+            missing.push(b);
+            continue;
+        }
+        let Some(source) = b.source.as_deref().filter(|s| is_remote_url(s)) else {
+            skipped.push(b.name);
+            continue;
+        };
+        if crate::domain::buckets::git_remote(&local).is_none() {
+            skipped.push(b.name);
+            continue;
+        }
+        crate::domain::mirrors::run_git(
+            &local.display().to_string(),
+            &["remote", "set-url", "origin", source],
+        )?;
+        reset.push(b.name);
+    }
+    Ok(RestoreBucketsResult { reset, missing, skipped })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,5 +446,113 @@ mod tests {
         let meta = load_meta(&dir, &summary.id).unwrap();
         assert!(!meta.config_present);
         assert!(!snapshot_dir(&dir, &summary.id).join("config.json").exists());
+    }
+
+    #[test]
+    fn plan_reports_missing_apps_buckets_and_reset() {
+        let (t, root, config) = fixture();
+        let dir = t.path().join("snapshots");
+        let s = create(
+            &dir,
+            &root,
+            &config,
+            &[
+                bucket("main", Some("https://github.com/ScoopInstaller/Main")),
+                bucket("extras", Some("https://gitee.com/scoop-installer/Extras")),
+            ],
+            &[
+                app("git", Some("main"), "2.55.0.5", false),
+                app("7zip", Some("main"), "26.00", true),
+            ],
+            &t.path().join("none"),
+        )
+        .unwrap();
+        let current_buckets = vec![
+            bucket("main", Some("https://github.com/ScoopInstaller/Main")),
+            bucket("java", None),
+        ];
+        let current_apps = vec![app("git", Some("main"), "2.55.0.5", false)];
+        let p = plan(&dir, &s.id, &root, &config, &current_buckets, &current_apps).unwrap();
+        assert!(p.root_matches);
+        assert!(p.config_present);
+        assert_eq!(p.config_path, config.display().to_string());
+        assert_eq!(p.reset_buckets.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(), vec!["main"]);
+        assert_eq!(p.missing_buckets.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(), vec!["extras"]);
+        assert_eq!(p.missing_apps.len(), 1);
+        assert!(p.missing_apps[0].global);
+        assert_eq!(p.missing_apps[0].name, "7zip");
+    }
+
+    #[test]
+    fn plan_flags_root_mismatch() {
+        let (t, root, config) = fixture();
+        let dir = t.path().join("snapshots");
+        let s = create(&dir, &root, &config, &[], &[], &t.path().join("none")).unwrap();
+        let p = plan(&dir, &s.id, &t.path().join("other"), &config, &[], &[]).unwrap();
+        assert!(!p.root_matches);
+    }
+
+    #[test]
+    fn restore_config_backs_up_and_writes() {
+        let (t, root, config) = fixture();
+        let dir = t.path().join("snapshots");
+        let s = create(&dir, &root, &config, &[], &[], &t.path().join("none")).unwrap();
+        std::fs::write(&config, r#"{"old":true}"#).unwrap();
+        restore_config(&dir, &s.id, &config).unwrap();
+        let restored = std::fs::read_to_string(&config).unwrap();
+        assert!(restored.contains("url_proxy"));
+        let bak = std::fs::read_to_string(root.join("config.json.bak")).unwrap();
+        assert!(bak.contains("old"));
+        assert!(!root.join("config.json.tmp").exists());
+    }
+
+    #[test]
+    fn restore_config_without_config_errors() {
+        let (t, root, _config) = fixture();
+        let dir = t.path().join("snapshots");
+        let s = create(&dir, &root, &root.join("missing.json"), &[], &[], &t.path().join("none")).unwrap();
+        let err = restore_config(&dir, &s.id, &root.join("config.json")).unwrap_err().to_string();
+        assert!(err.contains("未包含配置文件"), "实际: {err}");
+    }
+
+    #[test]
+    fn restore_buckets_sets_remote_and_reports_missing() {
+        let (t, root, config) = fixture();
+        let main = root.join("buckets").join("main");
+        std::fs::create_dir_all(&main).unwrap();
+        crate::domain::mirrors::run_git(&main.display().to_string(), &["init", "-q"]).unwrap();
+        crate::domain::mirrors::run_git(
+            &main.display().to_string(),
+            &["remote", "add", "origin", "https://github.com/ScoopInstaller/Main"],
+        )
+        .unwrap();
+        std::fs::create_dir_all(root.join("buckets").join("notgit")).unwrap();
+
+        let dir = t.path().join("snapshots");
+        let s = create(
+            &dir,
+            &root,
+            &config,
+            &[
+                bucket("main", Some("https://gitee.com/scoop-installer/Main")),
+                bucket("extras", Some("https://gitee.com/scoop-installer/Extras")),
+                bucket("notgit", Some("https://gitee.com/scoop-installer/NotGit")),
+                bucket("localonly", None),
+            ],
+            &[],
+            &t.path().join("none"),
+        )
+        .unwrap();
+        let result = restore_buckets(&dir, &s.id, &root).unwrap();
+        assert_eq!(result.reset, vec!["main"]);
+        assert_eq!(
+            result.missing.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(),
+            vec!["extras", "localonly"]
+        );
+        assert_eq!(result.skipped, vec!["notgit"]);
+        assert_eq!(
+            crate::domain::buckets::git_remote(&main).as_deref(),
+            Some("https://gitee.com/scoop-installer/Main")
+        );
     }
 }

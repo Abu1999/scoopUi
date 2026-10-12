@@ -8,7 +8,6 @@
         size="small"
         :value="rootValue"
         :options="rootOptions"
-        :loading="roots.loading"
         placeholder="未找到 scoop 根目录"
         @update:value="onSelectRoot"
       />

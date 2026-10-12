@@ -81,6 +81,7 @@ mod tests {
             homepage: None,
             license: None,
             icon: None,
+            bin: vec![],
             deprecated: false,
         }
     }

@@ -13,6 +13,7 @@ pub struct PackageEntry {
     pub homepage: Option<String>,
     pub license: Option<String>,
     pub icon: Option<String>,
+    pub bin: Vec<String>,
     pub deprecated: bool,
 }
 
@@ -61,6 +62,7 @@ pub fn build(buckets_dir: &Path) -> Vec<PackageEntry> {
                 homepage: m.homepage,
                 license: m.license,
                 icon: m.icon,
+                bin: m.bin,
                 deprecated: m.deprecated,
             });
         }
@@ -158,6 +160,7 @@ mod tests {
             homepage: None,
             license: None,
             icon: None,
+            bin: vec![],
             deprecated: false,
         };
         let entries = vec![
@@ -191,6 +194,7 @@ mod tests {
             homepage: None,
             license: None,
             icon: None,
+            bin: vec![],
             deprecated: false,
         };
         let entries = vec![
@@ -217,9 +221,23 @@ mod tests {
             homepage: None,
             license: None,
             icon: None,
+            bin: vec![],
             deprecated: false,
         };
         let entries = vec![mk("zulu17-jdk", "java")];
         assert!(search(&entries, "javat", 10).is_empty());
+    }
+
+    #[test]
+    fn collects_bin_from_manifest() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_manifest(
+            tmp.path(),
+            "main",
+            "git",
+            r#"{"version":"1.0","bin":[["git","git.exe"],"scalar.exe"]}"#,
+        );
+        let entries = build(tmp.path());
+        assert_eq!(entries[0].bin, vec!["git", "scalar.exe"]);
     }
 }

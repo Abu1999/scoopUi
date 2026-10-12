@@ -3,6 +3,9 @@ import type {
   InstalledApp,
   MirrorInfo,
   PackageEntry,
+  Profile,
+  ProfileDiff,
+  ProfileSummary,
   ProxyTest,
   RootInfo,
   ScoopConfig,
@@ -54,3 +57,14 @@ export const setProxy = (value: string | null) => invoke<void>("set_proxy", { va
 export const setAria2 = (enabled: boolean, split: number | null, maxConnection: number | null) =>
   invoke<void>("set_aria2", { enabled, split, maxConnection });
 export const testUrlProxy = (proxy: string | null) => invoke<ProxyTest>("test_url_proxy", { proxy });
+
+export const listProfiles = () => invoke<ProfileSummary[]>("list_profiles");
+export const getProfile = (name: string) => invoke<Profile>("get_profile", { name });
+export const saveProfileFromCurrent = (name: string) => invoke<Profile>("save_profile_from_current", { name });
+export const importProfile = (path: string, name: string) => invoke<Profile>("import_profile", { path, name });
+export const exportProfile = (name: string, path: string) => invoke<void>("export_profile", { name, path });
+export const renameProfile = (name: string, newName: string) => invoke<void>("rename_profile", { name, newName });
+export const deleteProfile = (name: string) => invoke<void>("delete_profile", { name });
+export const profileDiff = (name: string) => invoke<ProfileDiff>("profile_diff", { name });
+export const applyProfileSettings = (settings: Record<string, unknown>) =>
+  invoke<void>("apply_profile_settings", { settings });

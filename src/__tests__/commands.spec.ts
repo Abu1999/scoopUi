@@ -5,22 +5,31 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
 import {
   addRoot,
+  applyProfileSettings,
   bucketAdd,
   bucketRemove,
   cancelTask,
+  deleteProfile,
   detectRoots,
+  exportProfile,
   fetchIcon,
   getActiveRoot,
   getMirrorInfo,
+  getProfile,
   getScoopConfig,
+  importProfile,
   installPackage,
   listBuckets,
   listInstalledApps,
   listKnownBuckets,
+  listProfiles,
   listUpdates,
+  profileDiff,
   refreshPackageIndex,
+  renameProfile,
   runMaintenance,
   runScoop,
+  saveProfileFromCurrent,
   searchPackages,
   setActiveRoot,
   setAria2,
@@ -159,5 +168,36 @@ describe("commands 包装", () => {
 
     await testUrlProxy(null);
     expect(invokeMock).toHaveBeenLastCalledWith("test_url_proxy", { proxy: null });
+  });
+
+  it("M5a 配置集命令名与参数符合后端契约", async () => {
+    await listProfiles();
+    expect(invokeMock).toHaveBeenLastCalledWith("list_profiles", undefined);
+
+    await getProfile("工作");
+    expect(invokeMock).toHaveBeenLastCalledWith("get_profile", { name: "工作" });
+
+    await saveProfileFromCurrent("工作");
+    expect(invokeMock).toHaveBeenLastCalledWith("save_profile_from_current", { name: "工作" });
+
+    await importProfile("C:\\a.json", "工作");
+    expect(invokeMock).toHaveBeenLastCalledWith("import_profile", { path: "C:\\a.json", name: "工作" });
+
+    await exportProfile("工作", "C:\\out.json");
+    expect(invokeMock).toHaveBeenLastCalledWith("export_profile", { name: "工作", path: "C:\\out.json" });
+
+    await renameProfile("工作", "新工作");
+    expect(invokeMock).toHaveBeenLastCalledWith("rename_profile", { name: "工作", newName: "新工作" });
+
+    await deleteProfile("工作");
+    expect(invokeMock).toHaveBeenLastCalledWith("delete_profile", { name: "工作" });
+
+    await profileDiff("工作");
+    expect(invokeMock).toHaveBeenLastCalledWith("profile_diff", { name: "工作" });
+
+    await applyProfileSettings({ url_proxy: "https://p" });
+    expect(invokeMock).toHaveBeenLastCalledWith("apply_profile_settings", {
+      settings: { url_proxy: "https://p" },
+    });
   });
 });

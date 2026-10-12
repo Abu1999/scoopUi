@@ -103,3 +103,46 @@ export interface ProxyTest {
   proxy_reachable: boolean;
   proxy_info: string | null;
 }
+
+export interface BucketRef {
+  name: string;
+  source: string | null;
+}
+
+export interface ProfileApp {
+  name: string;
+  bucket: string | null;
+  global: boolean;
+}
+
+export interface Profile {
+  version: number;
+  name: string;
+  created: number;
+  buckets: BucketRef[];
+  apps: ProfileApp[];
+  settings: Record<string, unknown>;
+}
+
+export interface ProfileSummary {
+  name: string;
+  created: number;
+  bucket_count: number;
+  app_count: number;
+  settings_count: number;
+}
+
+export interface SettingDiff {
+  key: string;
+  current: unknown | null;
+  target: unknown;
+}
+
+export interface ProfileDiff {
+  missing_buckets: BucketRef[];
+  extra_buckets: string[];
+  bucket_source_conflicts: string[];
+  missing_apps: ProfileApp[];
+  extra_apps: ProfileApp[];
+  settings: SettingDiff[];
+}

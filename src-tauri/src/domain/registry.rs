@@ -90,9 +90,12 @@ pub fn collect_exe_names(dir: &Path) -> Vec<String> {
 }
 
 pub fn valid_key_path(key: &str) -> bool {
-    UNINSTALL_ROOTS
-        .iter()
-        .any(|root| key.len() > root.len() && key[..root.len()].eq_ignore_ascii_case(root) && key.as_bytes()[root.len()] == b'\\')
+    UNINSTALL_ROOTS.iter().any(|root| {
+        key.get(..root.len())
+            .map(|prefix| prefix.eq_ignore_ascii_case(root))
+            .unwrap_or(false)
+            && key.as_bytes().get(root.len()) == Some(&b'\\')
+    })
 }
 
 #[cfg(not(windows))]
@@ -369,6 +372,18 @@ mod tests {
     fn read_uninstall_string_rejects_foreign_keys() {
         let err = read_uninstall_string(r"HKLM\Software\Other\Uninstall\X").unwrap_err();
         assert!(err.to_string().contains("注册表项非法"), "实际: {err}");
+    }
+
+    #[test]
+    fn valid_key_path_is_boundary_safe() {
+        assert!(valid_key_path(r"HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\X"));
+        assert!(valid_key_path(r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\X"));
+        assert!(valid_key_path(
+            r"HKLM\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\X"
+        ));
+        assert!(!valid_key_path(&"€".repeat(19)));
+        assert!(!valid_key_path(""));
+        assert!(!valid_key_path(r"HKLM\Software\Other\Uninstall\X"));
     }
 
     #[test]

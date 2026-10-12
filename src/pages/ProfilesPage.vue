@@ -297,12 +297,16 @@ async function openApply() {
 }
 
 async function doApply() {
-  const ok = await profiles.apply(uninstallExtra.value);
-  if (ok) {
-    message.success("配置集应用完成");
-    showApply.value = false;
-  } else {
-    message.error(profiles.applyError ?? "应用失败，详见任务日志");
+  try {
+    const ok = await profiles.apply(uninstallExtra.value);
+    if (ok) {
+      message.success("配置集应用完成");
+      showApply.value = false;
+    } else {
+      message.error(profiles.applyError ?? "应用失败，详见任务日志");
+    }
+  } catch (e) {
+    message.error(String(e));
   }
 }
 </script>

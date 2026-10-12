@@ -160,4 +160,18 @@ describe("ProfilesPage", () => {
     expect(messageError).toHaveBeenCalled();
     expect(document.body.textContent).toContain("失败");
   });
+
+  it("应用命令拒绝时提示错误且不抛出", async () => {
+    mocks.listProfiles.mockResolvedValue([summary]);
+    mocks.getProfile.mockResolvedValue(profileFixture);
+    mocks.profileDiff.mockResolvedValue(diffFixture);
+    const wrapper = await mountLoaded();
+    const applyBtn = wrapper.findAll("button").find((b) => b.text() === "应用");
+    await applyBtn!.trigger("click");
+    await flushPromises();
+    mocks.profileDiff.mockRejectedValueOnce("差异计算失败");
+    bodyButton("开始执行").click();
+    await flushPromises();
+    expect(messageError).toHaveBeenCalledWith("差异计算失败");
+  });
 });

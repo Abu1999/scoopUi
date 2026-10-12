@@ -91,7 +91,11 @@ async function afterTask(record: TaskRecord) {
   if (record.success) {
     await reload();
   } else {
-    message.error(`操作失败（退出码 ${record.code ?? "未知"}），详见任务日志`);
+    message.error(
+      record.hint
+        ? `操作失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+        : `操作失败（退出码 ${record.code ?? "未知"}），详见任务日志`,
+    );
   }
 }
 

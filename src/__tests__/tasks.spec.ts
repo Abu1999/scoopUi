@@ -73,4 +73,17 @@ describe("runTask", () => {
     expect(newTaskId()).toMatch(/^t-/);
     expect(newTaskId()).not.toBe(newTaskId());
   });
+
+  it("失败任务附带错误建议", async () => {
+    const logs = useLogsStore();
+    let id = "";
+    const pending = runTask("安装 git", async (taskId) => {
+      id = taskId;
+    });
+    await flushPromises();
+    logs.append({ taskId: id, stream: "stderr", line: "Hash check failed for git" });
+    logs.end({ taskId: id, code: 1, success: false });
+    const record = await pending;
+    expect(record.hint).toContain("镜像");
+  });
 });

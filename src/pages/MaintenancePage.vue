@@ -92,7 +92,11 @@ async function run(op: MaintenanceOp) {
   ui.logDrawerOpen = true;
   const record = await runTask(op.title, (taskId) => runMaintenance(op.key, taskId));
   if (!record.success) {
-    message.error(`操作失败（退出码 ${record.code ?? "未知"}），详见任务日志`);
+    message.error(
+      record.hint
+        ? `操作失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+        : `操作失败（退出码 ${record.code ?? "未知"}），详见任务日志`,
+    );
   }
 }
 </script>

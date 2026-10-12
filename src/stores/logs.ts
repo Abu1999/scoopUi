@@ -14,6 +14,7 @@ export interface TaskRecord {
   success: boolean;
   code: number | null;
   at: number;
+  hint?: string | null;
 }
 
 export const useLogsStore = defineStore("logs", {

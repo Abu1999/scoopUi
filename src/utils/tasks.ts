@@ -1,6 +1,7 @@
 import { watch } from "vue";
 import { useLogsStore } from "../stores/logs";
 import type { TaskRecord } from "../stores/logs";
+import { errorHint } from "./errorHint";
 
 const TASK_TIMEOUT_MS = 30 * 60 * 1000;
 let counter = 0;
@@ -25,15 +26,22 @@ export async function runTask(
         if (running === false) {
           if (timer) clearTimeout(timer);
           stop();
-          resolve(
+          const record =
             logs.history.find((r) => r.taskId === taskId) ?? {
               taskId,
               label,
               success: false,
               code: null,
               at: Date.now(),
-            },
-          );
+            };
+          const hint = record.success
+            ? null
+            : errorHint(
+                logs.lines
+                  .filter((l) => l.taskId === taskId && l.stream === "stderr")
+                  .map((l) => l.line),
+              );
+          resolve({ ...record, hint });
         }
       },
     );

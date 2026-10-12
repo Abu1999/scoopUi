@@ -137,7 +137,9 @@ export const useSnapshotsStore = defineStore("snapshots", {
           step.status = "success";
         } else {
           step.status = "failed";
-          this.restoreError = `步骤失败（退出码 ${record.code ?? "未知"}）`;
+          this.restoreError = record.hint
+            ? `步骤失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+            : `步骤失败（退出码 ${record.code ?? "未知"}）`;
           failed = true;
         }
       }
@@ -158,7 +160,9 @@ export const useSnapshotsStore = defineStore("snapshots", {
         await Promise.all([useAppsStore().load(), this.refreshPlan()]);
         return true;
       }
-      this.restoreError = `步骤失败（退出码 ${record.code ?? "未知"}）`;
+      this.restoreError = record.hint
+        ? `步骤失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+        : `步骤失败（退出码 ${record.code ?? "未知"}）`;
       return false;
     },
     async installAllMissing(): Promise<boolean> {
@@ -187,7 +191,9 @@ export const useSnapshotsStore = defineStore("snapshots", {
           step.status = "success";
         } else {
           step.status = "failed";
-          this.restoreError = `步骤失败（退出码 ${record.code ?? "未知"}）`;
+          this.restoreError = record.hint
+            ? `步骤失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+            : `步骤失败（退出码 ${record.code ?? "未知"}）`;
           failed = true;
         }
       }

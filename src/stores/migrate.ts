@@ -66,7 +66,13 @@ export const useMigrateStore = defineStore("migrate", {
         await useAppsStore().load();
         return { ok: true, warning, error: null };
       }
-      return { ok: false, warning, error: `步骤失败（退出码 ${record.code ?? "未知"}）` };
+      return {
+        ok: false,
+        warning,
+        error: record.hint
+          ? `步骤失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+          : `步骤失败（退出码 ${record.code ?? "未知"}）`,
+      };
     },
   },
 });

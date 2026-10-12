@@ -205,7 +205,9 @@ export const useProfilesStore = defineStore("profiles", {
           step.status = "success";
         } else {
           step.status = "failed";
-          this.applyError = `步骤失败（退出码 ${record.code ?? "未知"}）`;
+          this.applyError = record.hint
+            ? `步骤失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+            : `步骤失败（退出码 ${record.code ?? "未知"}）`;
           failed = true;
         }
       }

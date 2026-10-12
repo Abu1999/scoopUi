@@ -59,6 +59,7 @@ const git: InstalledApp = {
   persist: [],
   bin: ["git"],
   app_dir: "C:\\scoop\\apps\\git",
+  global: false,
 };
 
 function findButton(wrapper: ReturnType<typeof mount>, text: string) {
@@ -123,5 +124,14 @@ describe("AppDetail 操作", () => {
     await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
     await flushPromises();
     expect(mocks.uninstallPackage).not.toHaveBeenCalled();
+  });
+
+  it("全局应用操作传 global=true", async () => {
+    mocks.uninstallPackage.mockResolvedValue(undefined);
+    const globalGit: InstalledApp = { ...git, global: true };
+    const wrapper = mount(AppDetail, { props: { app: globalGit } });
+    await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
+    await flushPromises();
+    expect(mocks.uninstallPackage).toHaveBeenCalledWith("git", true, false, expect.any(String));
   });
 });

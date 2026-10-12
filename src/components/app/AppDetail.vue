@@ -7,6 +7,7 @@
         <div>
           <div class="title">
             {{ app.name }}
+            <n-tag v-if="app.global" size="small">全局</n-tag>
             <n-tag v-if="app.hold" size="small" type="warning">锁定</n-tag>
           </div>
           <div class="sub">版本 {{ app.version }}<span v-if="app.bucket"> · 来自 {{ app.bucket }}</span><span v-if="app.architecture"> · {{ app.architecture }}</span></div>
@@ -73,7 +74,7 @@ const logs = useLogsStore();
 const roots = useRootsStore();
 const ui = useUiStore();
 const busy = computed(() => logs.busy);
-const update = computed(() => (props.app ? apps.updateFor(props.app.name) : null));
+const update = computed(() => (props.app ? apps.updateFor(props.app) : null));
 
 async function afterTask(record: TaskRecord) {
   if (record.success) {
@@ -88,7 +89,7 @@ async function doUpdate() {
   if (!props.app) return;
   const name = props.app.name;
   ui.logDrawerOpen = true;
-  const record = await runTask(`更新 ${name}`, (taskId) => updatePackage(name, false, false, taskId));
+  const record = await runTask(`更新 ${name}`, (taskId) => updatePackage(name, false, props.app!.global, taskId));
   await afterTask(record);
 }
 
@@ -97,7 +98,7 @@ async function doUninstall() {
   if (!props.app) return;
   const name = props.app.name;
   ui.logDrawerOpen = true;
-  const record = await runTask(`卸载 ${name}`, (taskId) => uninstallPackage(name, false, false, taskId));
+  const record = await runTask(`卸载 ${name}`, (taskId) => uninstallPackage(name, props.app!.global, false, taskId));
   await afterTask(record);
 }
 
@@ -108,7 +109,7 @@ async function toggleHold() {
   const next = !props.app.hold;
   ui.logDrawerOpen = true;
   const record = await runTask(`${next ? "锁定" : "解除锁定"} ${name}`, (taskId) =>
-    setHold(name, next, false, taskId),
+    setHold(name, next, props.app!.global, taskId),
   );
   await afterTask(record);
 }

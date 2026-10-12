@@ -72,6 +72,7 @@ const git: InstalledApp = {
   persist: ["etc/gitconfig"],
   bin: ["git"],
   app_dir: "C:\\scoop\\apps\\git",
+  global: false,
 };
 
 const mirrorFixture: MirrorInfo = {
@@ -154,10 +155,28 @@ describe("AppList", () => {
       props: {
         apps: [git],
         selected: null,
-        updates: { git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false } },
+        updates: { git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false, global: false } },
       },
     });
     expect(wrapper.text()).toContain("可更新");
+  });
+
+  it("全局应用显示徽标并按 key 选中", async () => {
+    const globalGit: InstalledApp = { ...git, global: true };
+    const wrapper = mount(AppList, {
+      props: {
+        apps: [globalGit],
+        selected: "git@global",
+        updates: {
+          "git@global": { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false, global: true },
+        },
+      },
+    });
+    expect(wrapper.text()).toContain("全局");
+    expect(wrapper.text()).toContain("可更新");
+    expect(wrapper.find(".row").classes()).toContain("active");
+    await wrapper.find(".row").trigger("click");
+    expect(wrapper.emitted("select")?.[0]).toEqual(["git@global"]);
   });
 });
 
@@ -200,7 +219,7 @@ describe("AppDetail", () => {
 
   it("可更新时展示新版本提示", () => {
     const apps = useAppsStore();
-    apps.updates = { git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false } };
+    apps.updates = { git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false, global: false } };
     const wrapper = mount(AppDetail, { props: { app: git } });
     expect(wrapper.text()).toContain("可更新至 2.55.0.5");
   });

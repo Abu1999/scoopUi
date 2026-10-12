@@ -4,7 +4,7 @@
       <n-alert v-if="apps.error" type="error" size="small" class="alert">{{ apps.error }}</n-alert>
       <AppList
         :apps="apps.apps"
-        :selected="apps.selectedName"
+        :selected="apps.selectedKey"
         :updates="apps.updates"
         class="list"
         @select="apps.select"

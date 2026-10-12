@@ -101,7 +101,7 @@ describe("ProfilesPage", () => {
     mocks.profileDiff.mockResolvedValue(diffFixture);
     const wrapper = await mountLoaded();
     expect(wrapper.text()).toContain("工作");
-    expect(wrapper.text()).toContain("缺少桶");
+    expect(wrapper.text()).toContain("缺少软件源");
     expect(wrapper.text()).toContain("extras");
     expect(wrapper.text()).toContain("缺少应用");
     expect(wrapper.text()).toContain("7zip");

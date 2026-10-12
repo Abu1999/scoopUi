@@ -10,7 +10,7 @@
             <n-tag v-if="pkg.deprecated" size="small" type="warning">已弃用</n-tag>
           </div>
           <div class="sub">
-            版本 {{ pkg.version }} · 来自 {{ pkg.bucket }} 桶<span v-if="pkg.license"> · {{ pkg.license }}</span>
+            版本 {{ pkg.version }} · 来自软件源 {{ pkg.bucket }}<span v-if="pkg.license"> · {{ pkg.license }}</span>
           </div>
         </div>
       </div>
@@ -34,7 +34,7 @@
         <div class="install-row">
           <n-button type="primary" size="small" :disabled="busy" @click="doInstall">安装</n-button>
           <span class="install-source">
-            来自 {{ pkg.bucket }} 桶<span v-if="globalInstall">；全局安装可能需要管理员权限</span>
+            来自软件源 {{ pkg.bucket }}<span v-if="globalInstall">；全局安装可能需要管理员权限</span>
           </span>
         </div>
       </div>

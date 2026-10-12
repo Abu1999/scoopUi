@@ -80,7 +80,7 @@ describe("设置区块", () => {
     });
   });
 
-  it("镜像区块切换桶源并通知刷新", async () => {
+  it("镜像区块切换软件源并通知刷新", async () => {
     const wrapper = mount(MirrorSection, { props: { info: info() } });
     const rows = wrapper.findAll(".bucket-row");
     expect(rows.length).toBe(2);

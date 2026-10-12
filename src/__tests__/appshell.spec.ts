@@ -82,7 +82,7 @@ describe("AppShell 启动时序", () => {
     h.failInit.value = false;
   });
 
-  it("按日志→根目录→应用→桶的顺序串行加载", async () => {
+  it("按日志→根目录→应用→软件源的顺序串行加载", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     mount(AppShell, { global: { plugins: [pinia], stubs } });
@@ -97,7 +97,7 @@ describe("AppShell 启动时序", () => {
     ]);
   });
 
-  it("日志初始化失败仍继续加载根目录、应用与桶", async () => {
+  it("日志初始化失败仍继续加载根目录、应用与软件源", async () => {
     h.failInit.value = true;
     const pinia = createPinia();
     setActivePinia(pinia);

@@ -5,7 +5,7 @@
       <n-descriptions-item label="当前根目录">
         {{ roots.active?.path ?? "未设置" }}
       </n-descriptions-item>
-      <n-descriptions-item label="应用 / 桶数量">
+      <n-descriptions-item label="应用 / 软件源数量">
         {{ roots.active ? `${roots.active.app_count} / ${roots.active.bucket_count}` : "-" }}
       </n-descriptions-item>
       <n-descriptions-item label="全局目录">

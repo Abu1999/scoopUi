@@ -137,7 +137,7 @@ describe("commands 包装", () => {
     expect(invokeMock).toHaveBeenLastCalledWith("run_maintenance", { op: "checkup", taskId: "t-2" });
   });
 
-  it("M3c 已知桶命令名符合后端契约", async () => {
+  it("M3c 已知软件源命令名符合后端契约", async () => {
     await listKnownBuckets();
     expect(invokeMock).toHaveBeenLastCalledWith("list_known_buckets", undefined);
   });

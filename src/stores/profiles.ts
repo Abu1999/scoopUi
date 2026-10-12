@@ -160,7 +160,7 @@ export const useProfilesStore = defineStore("profiles", {
         steps.push({ key: "settings", label: "写入下载加速设置", status: "pending" });
       }
       for (const b of diff.missing_buckets) {
-        steps.push({ key: `bucket:${b.name}`, label: `添加桶 ${b.name}`, status: "pending" });
+        steps.push({ key: `bucket:${b.name}`, label: `添加软件源 ${b.name}`, status: "pending" });
       }
       for (const a of diff.missing_apps) {
         steps.push({

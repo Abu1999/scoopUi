@@ -86,7 +86,7 @@ describe("profiles store", () => {
     expect(store.error).toContain("读取配置集目录失败");
   });
 
-  it("apply 依次执行 settings→桶→应用", async () => {
+  it("apply 依次执行 settings→软件源→应用", async () => {
     mocks.profileDiff.mockResolvedValue(diffFixture);
     mocks.applyProfileSettings.mockResolvedValue(undefined);
     mocks.bucketAdd.mockResolvedValue(undefined);

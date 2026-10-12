@@ -22,7 +22,7 @@
     <n-table :bordered="false" size="small" class="table">
       <thead>
         <tr>
-          <th>桶</th>
+          <th>软件源</th>
           <th>当前源</th>
           <th>切换</th>
         </tr>
@@ -97,7 +97,7 @@ async function applyBucket(name: string, source: string) {
   if (busy.value) return;
   try {
     const url = await setBucketSource(name, source);
-    message.success(`桶 ${name} 已切换: ${url}`);
+    message.success(`软件源 ${name} 已切换: ${url}`);
     emit("changed");
   } catch (e) {
     message.error(String(e));

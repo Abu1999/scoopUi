@@ -16,7 +16,7 @@ const ui = useUiStore();
 const options: MenuOption[] = [
   { label: "已安装", key: "installed" },
   { label: "商店", key: "store" },
-  { label: "桶管理", key: "buckets" },
+  { label: "软件源管理", key: "buckets" },
   { label: "维护", key: "maintenance" },
   { label: "环境迁移", key: "migrate" },
   { label: "配置集", key: "profiles" },

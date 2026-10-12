@@ -16,7 +16,7 @@
           @click="profiles.select(p.name)"
         >
           <div class="name">{{ p.name }}</div>
-          <div class="meta">应用 {{ p.app_count }} · 桶 {{ p.bucket_count }}</div>
+          <div class="meta">应用 {{ p.app_count }} · 软件源 {{ p.bucket_count }}</div>
           <div class="meta">{{ formatTime(p.created) }}</div>
         </div>
       </div>
@@ -52,7 +52,7 @@
           <div v-else-if="noDiff" class="hint">与当前状态一致</div>
           <template v-else>
             <div v-if="profiles.diff!.missing_buckets.length" class="diff-line">
-              缺少桶：{{ profiles.diff!.missing_buckets.map((b) => b.name).join("、") }}
+              缺少软件源：{{ profiles.diff!.missing_buckets.map((b) => b.name).join("、") }}
             </div>
             <div v-if="profiles.diff!.missing_apps.length" class="diff-line">
               缺少应用：{{ profiles.diff!.missing_apps.map(appLabel).join("、") }}
@@ -61,7 +61,7 @@
               多余应用（默认不卸载）：{{ profiles.diff!.extra_apps.map(appLabel).join("、") }}
             </div>
             <div v-if="profiles.diff!.extra_buckets.length" class="diff-line">
-              多余桶（不处理）：{{ profiles.diff!.extra_buckets.join("、") }}
+              多余软件源（不处理）：{{ profiles.diff!.extra_buckets.join("、") }}
             </div>
             <div v-if="profiles.diff!.bucket_source_conflicts.length" class="diff-line">
               源冲突（不处理）：{{ profiles.diff!.bucket_source_conflicts.join("、") }}
@@ -73,7 +73,7 @@
         </div>
 
         <div class="section">
-          <div class="section-title">桶（{{ profiles.detail.buckets.length }}）</div>
+          <div class="section-title">软件源（{{ profiles.detail.buckets.length }}）</div>
           <div v-if="profiles.detail.buckets.length === 0" class="hint">无</div>
           <div v-for="b in profiles.detail.buckets" :key="b.name" class="line">
             <span class="mono">{{ b.name }}</span>
@@ -87,7 +87,7 @@
           <div v-for="a in profiles.detail.apps" :key="`${a.name}@${a.global}`" class="line">
             <span class="mono">{{ a.name }}</span>
             <span v-if="a.global" class="badge">全局</span>
-            <span class="dim">{{ a.bucket ?? "（未知桶）" }}</span>
+            <span class="dim">{{ a.bucket ?? "（未知软件源）" }}</span>
           </div>
         </div>
 
@@ -131,7 +131,7 @@
 
     <n-modal v-model:show="showApply" preset="card" title="应用配置集" class="modal">
       <div v-if="profiles.diff" class="hint">
-        缺少桶 {{ profiles.diff.missing_buckets.length }} · 缺少应用 {{ profiles.diff.missing_apps.length }} ·
+        缺少软件源 {{ profiles.diff.missing_buckets.length }} · 缺少应用 {{ profiles.diff.missing_apps.length }} ·
         多余应用 {{ profiles.diff.extra_apps.length }} · 设置变化 {{ profiles.diff.settings.length }}
       </div>
       <div v-for="s in profiles.steps" :key="s.key" class="step" :class="s.status">

@@ -45,13 +45,13 @@ describe("BucketsPage 操作", () => {
     ]);
   });
 
-  it("添加桶调用 bucketAdd 并刷新列表", async () => {
+  it("添加软件源调用 bucketAdd 并刷新列表", async () => {
     const wrapper = mount(BucketsPage);
     await flushPromises();
     expect(useBucketsStore().buckets).toHaveLength(1);
     await wrapper.findComponent(NSelect).vm.$emit("update:value", "java");
-    await wrapper.find('input[placeholder="仓库地址（可选，已知桶可留空）"]').setValue("https://example.com/java.git");
-    const button = wrapper.findAll("button").find((b) => b.text().includes("添加桶"));
+    await wrapper.find('input[placeholder="仓库地址（可选，已知软件源可留空）"]').setValue("https://example.com/java.git");
+    const button = wrapper.findAll("button").find((b) => b.text().includes("添加软件源"));
     await button!.trigger("click");
     await flushPromises();
     expect(mocks.bucketAdd).toHaveBeenCalledWith("java", "https://example.com/java.git", expect.any(String));
@@ -61,17 +61,17 @@ describe("BucketsPage 操作", () => {
     expect(mocks.listBuckets).toHaveBeenCalledTimes(2);
   });
 
-  it("已知桶仓库留空时传 null", async () => {
+  it("已知软件源仓库留空时传 null", async () => {
     const wrapper = mount(BucketsPage);
     await flushPromises();
     await wrapper.findComponent(NSelect).vm.$emit("update:value", "extras");
-    const button = wrapper.findAll("button").find((b) => b.text().includes("添加桶"));
+    const button = wrapper.findAll("button").find((b) => b.text().includes("添加软件源"));
     await button!.trigger("click");
     await flushPromises();
     expect(mocks.bucketAdd).toHaveBeenCalledWith("extras", null, expect.any(String));
   });
 
-  it("下拉展示已知桶并可直接选择", async () => {
+  it("下拉展示已知软件源并可直接选择", async () => {
     const wrapper = mount(BucketsPage);
     await flushPromises();
     const select = wrapper.findComponent(NSelect);
@@ -82,7 +82,7 @@ describe("BucketsPage 操作", () => {
     ]);
     select.vm.$emit("update:value", "games");
     await flushPromises();
-    const button = wrapper.findAll("button").find((b) => b.text().includes("添加桶"));
+    const button = wrapper.findAll("button").find((b) => b.text().includes("添加软件源"));
     await button!.trigger("click");
     await flushPromises();
     expect(mocks.bucketAdd).toHaveBeenCalledWith("games", null, expect.any(String));
@@ -97,7 +97,7 @@ describe("BucketsPage 操作", () => {
     expect(mocks.bucketRemove).not.toHaveBeenCalled();
   });
 
-  it("删除桶需确认且失败提示错误", async () => {
+  it("删除软件源需确认且失败提示错误", async () => {
     const wrapper = mount(BucketsPage);
     await flushPromises();
     await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
@@ -110,10 +110,10 @@ describe("BucketsPage 操作", () => {
     expect(mocks.listBuckets).toHaveBeenCalledTimes(1);
   });
 
-  it("更新 Scoop 与桶调用 updatePackage(null,false,false)", async () => {
+  it("更新 Scoop 与软件源调用 updatePackage(null,false,false)", async () => {
     const wrapper = mount(BucketsPage);
     await flushPromises();
-    const button = wrapper.findAll("button").find((b) => b.text().includes("更新 Scoop 与桶"));
+    const button = wrapper.findAll("button").find((b) => b.text().includes("更新 Scoop 与软件源"));
     await button!.trigger("click");
     await flushPromises();
     expect(mocks.updatePackage).toHaveBeenCalledWith(null, false, false, expect.any(String));
@@ -123,7 +123,7 @@ describe("BucketsPage 操作", () => {
     useLogsStore().start("t1", "测试任务");
     const wrapper = mount(BucketsPage);
     await flushPromises();
-    const addButton = wrapper.findAll("button").find((b) => b.text().includes("添加桶"));
+    const addButton = wrapper.findAll("button").find((b) => b.text().includes("添加软件源"));
     expect(addButton!.attributes("disabled")).toBeDefined();
   });
 });

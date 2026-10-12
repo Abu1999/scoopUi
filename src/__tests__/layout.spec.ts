@@ -51,7 +51,7 @@ describe("布局", () => {
     const wrapper = mount(SideBar, {
       global: { stubs: { Menu: menuStub } },
     });
-    const labels = ["已安装", "商店", "桶管理", "维护", "环境迁移", "配置集", "备份", "设置"];
+    const labels = ["已安装", "商店", "软件源管理", "维护", "环境迁移", "配置集", "备份", "设置"];
     const text = wrapper.text();
     for (const label of labels) {
       expect(text).toContain(label);

@@ -26,6 +26,6 @@ pub async fn list_known_buckets(state: State<'_, AppState>) -> Result<Vec<String
     )?;
     let output = tauri::async_runtime::spawn_blocking(move || scoopcmd::capture(&cmd))
         .await
-        .map_err(|e| AppError::Other(format!("已知桶列表获取失败: {e}")))??;
+        .map_err(|e| AppError::Other(format!("已知软件源列表获取失败: {e}")))??;
     Ok(scoopops::parse_known_buckets(&output))
 }

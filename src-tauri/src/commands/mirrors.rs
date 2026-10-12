@@ -117,7 +117,7 @@ fn validate_bucket_name(bucket: &str) -> Result<(), AppError> {
             .chars()
             .any(|c| matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control());
     if invalid {
-        return Err(AppError::Other(format!("桶名称非法: {bucket}")));
+        return Err(AppError::Other(format!("软件源名称非法: {bucket}")));
     }
     Ok(())
 }
@@ -133,10 +133,10 @@ pub async fn set_bucket_source(
     validate_bucket_name(&bucket)?;
     let dir = root.join("buckets").join(&bucket);
     if !dir.is_dir() {
-        return Err(AppError::Other(format!("桶不存在: {bucket}")));
+        return Err(AppError::Other(format!("软件源不存在: {bucket}")));
     }
     let remote = buckets::git_remote(&dir)
-        .ok_or_else(|| AppError::Other(format!("桶不是 git 仓库，无法切换源: {bucket}")))?;
+        .ok_or_else(|| AppError::Other(format!("软件源不是 git 仓库，无法切换源: {bucket}")))?;
     let url = mirrors::apply_source(&remote, &source, icons::default_proxy())?;
     let dir_text = dir.display().to_string();
     let applied = url.clone();
@@ -293,5 +293,7 @@ mod tests {
         ] {
             assert!(validate_bucket_name(bad).is_err(), "{bad:?} 应被拒绝");
         }
+        let err = validate_bucket_name("a/b").unwrap_err().to_string();
+        assert!(err.contains("软件源名称非法"), "实际: {err}");
     }
 }

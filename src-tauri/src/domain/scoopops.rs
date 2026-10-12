@@ -25,7 +25,7 @@ pub fn install_args(
     global: bool,
 ) -> Result<Vec<String>, AppError> {
     let name = require(name, "应用名")?;
-    let bucket = optional(bucket, "桶名")?;
+    let bucket = optional(bucket, "软件源名称")?;
     let version = optional(version, "版本")?;
     let target = match (bucket, version) {
         (Some(b), Some(ver)) => format!("{b}/{name}@{ver}"),
@@ -86,7 +86,7 @@ pub fn hold_args(name: &str, hold: bool, global: bool) -> Result<Vec<String>, Ap
 }
 
 pub fn bucket_add_args(name: &str, repo: Option<&str>) -> Result<Vec<String>, AppError> {
-    let name = require(name, "桶名")?;
+    let name = require(name, "软件源名称")?;
     let mut args = vec!["bucket".to_string(), "add".to_string(), name];
     if let Some(repo) = optional(repo, "仓库地址")? {
         args.push(repo);
@@ -95,7 +95,7 @@ pub fn bucket_add_args(name: &str, repo: Option<&str>) -> Result<Vec<String>, Ap
 }
 
 pub fn bucket_remove_args(name: &str) -> Result<Vec<String>, AppError> {
-    let name = require(name, "桶名")?;
+    let name = require(name, "软件源名称")?;
     Ok(vec!["bucket".to_string(), "rm".to_string(), name])
 }
 
@@ -192,6 +192,14 @@ mod tests {
         assert_eq!(bucket_remove_args("java").unwrap(), v(&["bucket", "rm", "java"]));
         assert!(bucket_add_args("", None).is_err());
         assert!(bucket_remove_args("a b").is_err());
+    }
+
+    #[test]
+    fn bucket_errors_use_software_source_wording() {
+        let err = bucket_add_args("", None).unwrap_err().to_string();
+        assert!(err.contains("软件源名称"), "实际: {err}");
+        let err = bucket_remove_args("a b").unwrap_err().to_string();
+        assert!(err.contains("软件源名称"), "实际: {err}");
     }
 
     #[test]

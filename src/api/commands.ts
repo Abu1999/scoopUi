@@ -63,6 +63,8 @@ export const setProxy = (value: string | null) => invoke<void>("set_proxy", { va
 export const setAria2 = (enabled: boolean, split: number | null, maxConnection: number | null) =>
   invoke<void>("set_aria2", { enabled, split, maxConnection });
 export const testUrlProxy = (proxy: string | null) => invoke<ProxyTest>("test_url_proxy", { proxy });
+export const registerAppInstall = (name: string, global: boolean) =>
+  invoke<string[]>("register_app_install", { name, global });
 
 export const listProfiles = () => invoke<ProfileSummary[]>("list_profiles");
 export const getProfile = (name: string) => invoke<Profile>("get_profile", { name });

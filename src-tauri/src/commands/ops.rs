@@ -1,6 +1,9 @@
 use tauri::{AppHandle, State};
 
 use crate::commands::runner::spawn_task;
+use crate::commands::{context, roots::resolve_active_root};
+use crate::domain::postinstall;
+use crate::domain::root;
 use crate::domain::scoopops;
 use crate::error::AppError;
 use crate::state::AppState;
@@ -90,4 +93,21 @@ pub fn run_maintenance(
 ) -> Result<(), AppError> {
     let args = scoopops::maintenance_args(&op)?;
     spawn_task(&app, &state, args, task_id)
+}
+
+#[tauri::command(async)]
+pub fn register_app_install(
+    state: State<'_, AppState>,
+    name: String,
+    global: bool,
+) -> Result<Vec<String>, AppError> {
+    let ctx = context();
+    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let apps_base = if global {
+        root::global_dir(ctx.env_global.clone(), ctx.config_global_path(), &ctx.program_data).join("apps")
+    } else {
+        root.join("apps")
+    };
+    let dir = apps_base.join(&name).join("current");
+    postinstall::register(&dir, &name)
 }

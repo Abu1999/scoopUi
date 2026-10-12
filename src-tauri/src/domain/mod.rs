@@ -6,6 +6,7 @@ pub mod installed;
 pub mod manifest;
 pub mod migrate;
 pub mod mirrors;
+pub mod postinstall;
 pub mod profiles;
 pub mod registry;
 pub mod root;

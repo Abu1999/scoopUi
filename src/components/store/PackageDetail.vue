@@ -62,6 +62,7 @@ import { useLogsStore } from "../../stores/logs";
 import { useRootsStore } from "../../stores/roots";
 import { useUiStore } from "../../stores/ui";
 import { runTask } from "../../utils/tasks";
+import { registerInstall } from "../../utils/postinstall";
 
 const props = defineProps<{ pkg: PackageEntry | null }>();
 const message = useMessage();
@@ -83,7 +84,10 @@ async function doInstall() {
     installPackage(pkg.name, pkg.bucket, ver, globalInstall.value, taskId),
   );
   if (record.success) {
-    message.success(`已安装 ${pkg.name}`);
+    const registered = await registerInstall(pkg.name, globalInstall.value);
+    message.success(
+      registered.length > 0 ? `已安装 ${pkg.name}（已注册右键菜单/文件关联）` : `已安装 ${pkg.name}`,
+    );
     await Promise.all([apps.load(), roots.load()]);
   } else {
     message.error(

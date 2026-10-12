@@ -60,6 +60,7 @@ pub fn run() {
             commands::migrate::scan_installed_registry,
             commands::migrate::match_registry_apps,
             commands::migrate::run_registry_uninstall,
+            commands::ops::register_app_install,
             commands::app_settings::get_app_settings,
             commands::app_settings::set_theme
         ])

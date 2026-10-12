@@ -10,6 +10,7 @@ import {
   restoreSnapshotPlan,
 } from "../api/commands";
 import type { RestoreBucketsResult, RestorePlan, SnapshotApp, SnapshotSummary } from "../api/types";
+import { registerInstall } from "../utils/postinstall";
 import { runTask } from "../utils/tasks";
 import { useAppsStore } from "./apps";
 import { useBucketsStore } from "./buckets";
@@ -160,6 +161,7 @@ export const useSnapshotsStore = defineStore("snapshots", {
         (taskId) => installPackage(app.name, app.bucket, null, app.global, taskId),
       );
       if (record.success) {
+        await registerInstall(app.name, app.global);
         await Promise.all([useAppsStore().load(), this.refreshPlan()]);
         return true;
       }
@@ -192,6 +194,7 @@ export const useSnapshotsStore = defineStore("snapshots", {
         );
         if (record.success) {
           step.status = "success";
+          await registerInstall(app.name, app.global);
         } else {
           step.status = "failed";
           this.restoreError = record.hint

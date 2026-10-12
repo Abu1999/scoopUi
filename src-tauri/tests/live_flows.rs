@@ -2,7 +2,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use scoopui_lib::domain::{
-    buckets, configfile, index, installed, migrate, profiles, registry, root, scoopcmd, snapshots,
+    buckets, configfile, index, installed, migrate, postinstall, profiles, registry, root, scoopcmd,
+    snapshots,
 };
 
 fn home() -> Option<PathBuf> {
@@ -172,4 +173,25 @@ fn live_registry_scan_and_match() {
     let with_matches = matched.iter().filter(|m| !m.matches.is_empty()).count();
     println!("索引 {} 个包，注册表条目中匹配到包的有 {} 条", entries.len(), with_matches);
     println!("✅ 注册表扫描与匹配通过");
+}
+
+#[test]
+#[ignore = "真实环境：注册 git 安装钩子（右键菜单/文件关联，幂等）；cargo test --test live_flows -- --ignored --nocapture"]
+fn live_register_git_install_hooks() {
+    let dir = global_root()
+        .map(|g| g.join("apps").join("git").join("current"))
+        .filter(|p| p.is_dir())
+        .or_else(|| {
+            local_root()
+                .map(|r| r.join("apps").join("git").join("current"))
+                .filter(|p| p.is_dir())
+        });
+    let Some(dir) = dir else {
+        eprintln!("skip: 未找到 git 安装目录");
+        return;
+    };
+    let done = postinstall::register(&dir, "git").unwrap();
+    println!("已注册: {done:?}");
+    assert!(done.iter().any(|d| d.contains("context")), "应导入 install-context.reg");
+    println!("✅ git 安装钩子注册通过");
 }

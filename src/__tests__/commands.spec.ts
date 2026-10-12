@@ -31,6 +31,7 @@ import {
   matchRegistryApps,
   profileDiff,
   refreshPackageIndex,
+  registerAppInstall,
   renameProfile,
   restoreSnapshotBuckets,
   restoreSnapshotConfig,
@@ -252,5 +253,10 @@ describe("commands 包装", () => {
 
     await setTheme("dark");
     expect(invokeMock).toHaveBeenLastCalledWith("set_theme", { theme: "dark" });
+  });
+
+  it("安装钩子命令名与参数符合后端契约", async () => {
+    await registerAppInstall("git", true);
+    expect(invokeMock).toHaveBeenLastCalledWith("register_app_install", { name: "git", global: true });
   });
 });

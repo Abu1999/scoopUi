@@ -14,6 +14,7 @@ import {
   uninstallPackage,
 } from "../api/commands";
 import type { Profile, ProfileDiff, ProfileSummary } from "../api/types";
+import { registerInstall } from "../utils/postinstall";
 import { runTask } from "../utils/tasks";
 import { useAppsStore } from "./apps";
 import { useBucketsStore } from "./buckets";
@@ -203,6 +204,10 @@ export const useProfilesStore = defineStore("profiles", {
         const record = await runTaskFor(step, diff);
         if (record.success) {
           step.status = "success";
+          if (step.key.startsWith("install:")) {
+            const app = diff.missing_apps.find((a) => step.key === `install:${a.name}@${a.global}`);
+            if (app) await registerInstall(app.name, app.global);
+          }
         } else {
           step.status = "failed";
           this.applyError = record.hint

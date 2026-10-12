@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { installPackage, matchRegistryApps, runRegistryUninstall } from "../api/commands";
 import type { MigrationEntry, MigrationMatch } from "../api/types";
+import { registerInstall } from "../utils/postinstall";
 import { runTask } from "../utils/tasks";
 import { useAppsStore } from "./apps";
 import { useUiStore } from "./ui";
@@ -65,6 +66,7 @@ export const useMigrateStore = defineStore("migrate", {
         installPackage(match.name, match.bucket, null, false, taskId),
       );
       if (record.success) {
+        await registerInstall(match.name, false);
         await useAppsStore().load();
         return { ok: true, warning, error: null };
       }

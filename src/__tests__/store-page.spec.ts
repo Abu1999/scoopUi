@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   refreshPackageIndex: vi.fn(),
   fetchIcon: vi.fn().mockResolvedValue(null),
   installPackage: vi.fn().mockResolvedValue(undefined),
+  registerAppInstall: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../api/commands", () => mocks);
 
@@ -223,6 +224,7 @@ describe("StorePage", () => {
     const taskId = mocks.installPackage.mock.calls[0][4];
     useLogsStore().end({ taskId, code: 0, success: true });
     await flushPromises();
+    expect(mocks.registerAppInstall).toHaveBeenCalledWith("git", false);
     expect(mocks.listInstalledApps).toHaveBeenCalled();
     expect(mocks.detectRoots).toHaveBeenCalled();
   });

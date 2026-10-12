@@ -177,6 +177,7 @@ mod tests {
         let cmd = scoopcmd::ScoopCommand {
             program: "cmd.exe".to_string(),
             args: vec!["/C".to_string(), "ping -n 30 127.0.0.1 >nul".to_string()],
+            raw_args: vec![],
             envs: vec![],
             display: "cancel".to_string(),
         };
@@ -195,6 +196,7 @@ mod tests {
         let cmd = scoopcmd::ScoopCommand {
             program: "cmd.exe".to_string(),
             args: vec!["/C".to_string(), "exit /b 0".to_string()],
+            raw_args: vec![],
             envs: vec![],
             display: "dead".to_string(),
         };

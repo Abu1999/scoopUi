@@ -13,6 +13,7 @@ const POLL_INTERVAL: Duration = Duration::from_millis(50);
 pub struct ScoopCommand {
     pub program: String,
     pub args: Vec<String>,
+    pub raw_args: Vec<String>,
     pub envs: Vec<(String, String)>,
     pub display: String,
 }
@@ -52,6 +53,7 @@ pub fn build(root: &Path, global: Option<&Path>, args: &[String]) -> Result<Scoo
             "-Command".to_string(),
             script,
         ],
+        raw_args: vec![],
         envs,
         display,
     })
@@ -130,6 +132,9 @@ pub fn spawn(cmd: &ScoopCommand) -> Result<Spawned, AppError> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
+        for raw in &cmd.raw_args {
+            c.raw_arg(raw);
+        }
         c.creation_flags(0x08000000);
     }
     let child = c.spawn()?;
@@ -324,6 +329,7 @@ mod tests {
         let cmd = ScoopCommand {
             program: "cmd.exe".into(),
             args: vec!["/C".into(), "echo hello& echo warn 1>&2& exit /b 3".into()],
+            raw_args: vec![],
             envs: vec![],
             display: "test".into(),
         };
@@ -341,6 +347,7 @@ mod tests {
         let cmd = ScoopCommand {
             program: "cmd.exe".into(),
             args: vec!["/C".into(), "start /B ping -n 60 127.0.0.1".into()],
+            raw_args: vec![],
             envs: vec![],
             display: "grandchild".into(),
         };
@@ -364,6 +371,7 @@ mod tests {
         let cmd = ScoopCommand {
             program: "cmd.exe".into(),
             args: vec!["/C".into(), "start /B ping -n 60 127.0.0.1".into()],
+            raw_args: vec![],
             envs: vec![],
             display: "detach".into(),
         };
@@ -396,6 +404,7 @@ mod tests {
         let cmd = ScoopCommand {
             program: "powershell.exe".into(),
             args: vec!["-NoProfile".into(), "-Command".into(), script.into()],
+            raw_args: vec![],
             envs: vec![],
             display: "utf8".into(),
         };
@@ -418,6 +427,7 @@ mod tests {
         let cmd = ScoopCommand {
             program: "cmd.exe".into(),
             args: vec!["/C".into(), "echo one& echo two& exit /b 5".into()],
+            raw_args: vec![],
             envs: vec![],
             display: "panic".into(),
         };
@@ -443,6 +453,7 @@ mod tests {
         let cmd = ScoopCommand {
             program: "cmd.exe".into(),
             args: vec!["/C".into(), "ping -n 30 127.0.0.1 >nul".into()],
+            raw_args: vec![],
             envs: vec![],
             display: "sleep".into(),
         };
@@ -461,6 +472,7 @@ mod tests {
                 "/C".to_string(),
                 "(echo hello & echo warn 1>&2)".to_string(),
             ],
+            raw_args: vec![],
             envs: vec![],
             display: "capture-test".to_string(),
         };
@@ -474,10 +486,25 @@ mod tests {
         let cmd = ScoopCommand {
             program: "cmd.exe".to_string(),
             args: vec!["/C".to_string(), "exit /b 3".to_string()],
+            raw_args: vec![],
             envs: vec![],
             display: "capture-fail".to_string(),
         };
         let err = capture(&cmd).unwrap_err();
         assert!(err.to_string().contains("退出码"));
+    }
+
+    #[test]
+    fn raw_args_preserve_quoted_program_path() {
+        let cmd = ScoopCommand {
+            program: "cmd.exe".to_string(),
+            args: vec!["/C".to_string()],
+            raw_args: vec![r#""C:\Windows\System32\where.exe" cmd.exe"#.to_string()],
+            envs: vec![],
+            display: "raw".to_string(),
+        };
+        let mut spawned = spawn(&cmd).unwrap();
+        let code = spawned.child.wait().unwrap().code();
+        assert_eq!(code, Some(0));
     }
 }

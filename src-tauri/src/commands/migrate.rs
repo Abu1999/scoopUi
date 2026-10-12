@@ -57,7 +57,8 @@ pub fn run_registry_uninstall(
     let uninstall = registry::read_uninstall_string(&entry_key)?;
     let cmd = ScoopCommand {
         program: "cmd.exe".to_string(),
-        args: vec!["/C".to_string(), uninstall],
+        args: vec!["/C".to_string()],
+        raw_args: vec![uninstall],
         envs: vec![],
         display: format!("uninstall {entry_key}"),
     };

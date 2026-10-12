@@ -56,4 +56,14 @@ describe("appearance store", () => {
     expect(store.theme).toBe("system");
     expect(store.loaded).toBe(true);
   });
+
+  it("持久化失败时回滚偏好", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn() })));
+    mocks.getAppSettings.mockResolvedValue({ theme: "system" });
+    mocks.setTheme.mockRejectedValue("磁盘不可写");
+    const store = useAppearanceStore();
+    await store.load();
+    await expect(store.setThemePreference("dark")).rejects.toBe("磁盘不可写");
+    expect(store.theme).toBe("system");
+  });
 });

@@ -86,7 +86,11 @@ async function installAria2() {
     message.success("aria2 安装完成");
     emit("changed");
   } else {
-    message.error(`安装失败（退出码 ${record.code ?? "未知"}），详见任务日志`);
+    message.error(
+      record.hint
+        ? `安装失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+        : `安装失败（退出码 ${record.code ?? "未知"}），详见任务日志`,
+    );
   }
 }
 

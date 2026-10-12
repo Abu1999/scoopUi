@@ -45,8 +45,14 @@ export const useAppearanceStore = defineStore("appearance", {
       });
     },
     async setThemePreference(theme: ThemePreference) {
+      const previous = this.theme;
       this.theme = theme;
-      await setTheme(theme);
+      try {
+        await setTheme(theme);
+      } catch (e) {
+        this.theme = previous;
+        throw e;
+      }
     },
   },
 });

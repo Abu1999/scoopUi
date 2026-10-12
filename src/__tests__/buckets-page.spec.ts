@@ -133,4 +133,11 @@ describe("BucketsPage 操作", () => {
     await flushPromises();
     expect(wrapper.text()).toContain("还没有软件源");
   });
+
+  it("加载失败时不显示空态", async () => {
+    mocks.listBuckets.mockRejectedValue("未找到可用的 scoop 根目录");
+    const wrapper = mount(BucketsPage);
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("还没有软件源");
+  });
 });

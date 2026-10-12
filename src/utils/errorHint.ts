@@ -7,6 +7,7 @@ const RULES: Array<{ keys: string[]; hint: string }> = [
       "connection",
       "econnreset",
       "无法连接",
+      "超时",
       "临时故障",
       "下载失败",
     ],

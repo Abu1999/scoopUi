@@ -86,7 +86,11 @@ async function doInstall() {
     message.success(`已安装 ${pkg.name}`);
     await Promise.all([apps.load(), roots.load()]);
   } else {
-    message.error(`安装失败（退出码 ${record.code ?? "未知"}），详见任务日志`);
+    message.error(
+      record.hint
+        ? `安装失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+        : `安装失败（退出码 ${record.code ?? "未知"}），详见任务日志`,
+    );
   }
 }
 

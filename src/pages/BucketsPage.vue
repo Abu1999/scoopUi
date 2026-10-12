@@ -16,7 +16,7 @@
       <n-button size="small" :disabled="busy" @click="doUpdateAll">更新 Scoop 与软件源</n-button>
     </div>
     <n-alert v-if="store.error" type="error" size="small" class="alert">{{ store.error }}</n-alert>
-    <div v-if="store.buckets.length === 0" class="empty">还没有软件源，添加一个开始使用</div>
+    <div v-if="store.buckets.length === 0 && !store.loading && !store.error" class="empty">还没有软件源，添加一个开始使用</div>
     <n-table :bordered="false" size="small">
       <thead>
         <tr>

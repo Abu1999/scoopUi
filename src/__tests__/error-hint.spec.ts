@@ -18,4 +18,7 @@ describe("errorHint", () => {
     expect(errorHint(["some random output"])).toBeNull();
     expect(errorHint([])).toBeNull();
   });
+  it("超时文案给出网络建议", () => {
+    expect(errorHint(["等待任务结束事件超时"])).toContain("网络");
+  });
 });

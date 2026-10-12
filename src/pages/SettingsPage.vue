@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { NAlert, NButton, NDescriptions, NDescriptionsItem, NRadioButton, NRadioGroup } from "naive-ui";
+import { NAlert, NButton, NDescriptions, NDescriptionsItem, NRadioButton, NRadioGroup, useMessage } from "naive-ui";
 import { getMirrorInfo, getScoopConfig, runScoop } from "../api/commands";
 import type { MirrorInfo, ScoopConfig } from "../api/types";
 import AccelerationSection from "../components/settings/AccelerationSection.vue";
@@ -61,13 +61,18 @@ const roots = useRootsStore();
 const logs = useLogsStore();
 const ui = useUiStore();
 const appearance = useAppearanceStore();
+const message = useMessage();
 const config = ref<ScoopConfig | null>(null);
 const mirror = ref<MirrorInfo | null>(null);
 const mirrorError = ref<string | null>(null);
 let mirrorSeq = 0;
 
-function onThemeChange(value: ThemePreference) {
-  appearance.setThemePreference(value).catch(() => {});
+async function onThemeChange(value: ThemePreference) {
+  try {
+    await appearance.setThemePreference(value);
+  } catch (e) {
+    message.error(String(e));
+  }
 }
 
 const configJson = computed(() => (config.value ? JSON.stringify(config.value.values, null, 2) : ""));

@@ -199,7 +199,7 @@ pub fn rename(dir: &Path, name: &str, new_name: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-fn is_remote_url(source: &str) -> bool {
+pub(crate) fn is_remote_url(source: &str) -> bool {
     let s = source.trim().to_ascii_lowercase();
     s.starts_with("http://") || s.starts_with("https://") || s.starts_with("git@") || s.starts_with("ssh://")
 }

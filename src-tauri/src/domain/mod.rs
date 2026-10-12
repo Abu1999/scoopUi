@@ -9,5 +9,6 @@ pub mod profiles;
 pub mod root;
 pub mod scoopcmd;
 pub mod scoopops;
+pub mod snapshots;
 pub mod updates;
 pub mod versions;

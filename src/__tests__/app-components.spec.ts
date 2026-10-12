@@ -1,16 +1,19 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NPopconfirm } from "naive-ui";
 import AppDetail from "../components/app/AppDetail.vue";
 import AppIcon from "../components/app/AppIcon.vue";
 import AppList from "../components/app/AppList.vue";
 import InstalledPage from "../pages/InstalledPage.vue";
 import SettingsPage from "../pages/SettingsPage.vue";
 import { useAppsStore } from "../stores/apps";
+import { useLogsStore } from "../stores/logs";
 import { useRootsStore } from "../stores/roots";
 import type { InstalledApp, MirrorInfo, RootInfo } from "../api/types";
 
 const messageError = vi.hoisted(() => vi.fn());
+const messageSuccess = vi.hoisted(() => vi.fn());
 const fetchIcon = vi.hoisted(() => vi.fn());
 
 const listInstalledApps = vi.hoisted(() => vi.fn());
@@ -51,7 +54,7 @@ vi.mock("naive-ui", async () => {
     useMessage: () => ({
       error: messageError,
       info: vi.fn(),
-      success: vi.fn(),
+      success: messageSuccess,
       warning: vi.fn(),
     }),
   };
@@ -60,6 +63,10 @@ vi.mock("naive-ui", async () => {
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openPath: vi.fn(() => Promise.reject(new Error("denied"))),
   openUrl: vi.fn(() => Promise.reject(new Error("denied"))),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(() => Promise.resolve(() => {})),
 }));
 
 const git: InstalledApp = {
@@ -238,6 +245,32 @@ describe("InstalledPage", () => {
     await apps.load();
     const wrapper = mount(InstalledPage, { global: { plugins: [pinia] } });
     expect(wrapper.text()).toContain("未找到 scoop 根目录");
+  });
+
+  it("全部更新先更新用户应用再更新全局应用", async () => {
+    messageSuccess.mockClear();
+    listInstalledApps.mockResolvedValue([git]);
+    listUpdates.mockResolvedValue([
+      { name: "git", current: "2.55.0.5", latest: "2.56.0.2", bucket: "main", hold: false, global: true },
+    ]);
+    otherCommands.updatePackage.mockResolvedValue(undefined);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const apps = useAppsStore();
+    await apps.load();
+    const wrapper = mount(InstalledPage, { global: { plugins: [pinia] } });
+    await flushPromises();
+    await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
+    await flushPromises();
+    expect(otherCommands.updatePackage).toHaveBeenCalledWith(null, true, false, expect.any(String));
+    const userTask = otherCommands.updatePackage.mock.calls[0][3];
+    useLogsStore().end({ taskId: userTask, code: 0, success: true });
+    await flushPromises();
+    expect(otherCommands.updatePackage).toHaveBeenCalledWith(null, true, true, expect.any(String));
+    const globalTask = otherCommands.updatePackage.mock.calls[1][3];
+    useLogsStore().end({ taskId: globalTask, code: 0, success: true });
+    await flushPromises();
+    expect(messageSuccess).toHaveBeenCalledWith("更新完成");
   });
 });
 

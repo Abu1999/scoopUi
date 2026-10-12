@@ -1,6 +1,19 @@
 <template>
   <div class="page">
     <div class="side">
+      <div class="toolbar">
+        <n-popconfirm
+          :positive-button-props="{ disabled: busy || apps.updateCount === 0 }"
+          @positive-click="updateAll"
+        >
+          <template #trigger>
+            <n-button size="small" :disabled="busy || apps.updateCount === 0">
+              全部更新（{{ apps.updateCount }}）
+            </n-button>
+          </template>
+          确定更新全部 {{ apps.updateCount }} 个可更新应用（含全局）？
+        </n-popconfirm>
+      </div>
       <n-alert v-if="apps.error" type="error" size="small" class="alert">{{ apps.error }}</n-alert>
       <AppList
         :apps="apps.apps"
@@ -15,12 +28,52 @@
 </template>
 
 <script setup lang="ts">
-import { NAlert } from "naive-ui";
+import { computed } from "vue";
+import { NAlert, NButton, NPopconfirm, useMessage } from "naive-ui";
 import AppList from "../components/app/AppList.vue";
 import AppDetail from "../components/app/AppDetail.vue";
+import { updatePackage } from "../api/commands";
 import { useAppsStore } from "../stores/apps";
+import { useLogsStore } from "../stores/logs";
+import type { TaskRecord } from "../stores/logs";
+import { useUiStore } from "../stores/ui";
+import { runTask } from "../utils/tasks";
 
 const apps = useAppsStore();
+const logs = useLogsStore();
+const ui = useUiStore();
+const message = useMessage();
+const busy = computed(() => logs.busy);
+const hasGlobalUpdates = computed(() => Object.values(apps.updates).some((u) => u.global));
+
+function failMessage(label: string, record: TaskRecord): string {
+  return record.hint
+    ? `${label}失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+    : `${label}失败（退出码 ${record.code ?? "未知"}），详见任务日志`;
+}
+
+async function updateAll() {
+  if (busy.value || apps.updateCount === 0) return;
+  ui.logDrawerOpen = true;
+  const userTask = await runTask("全部更新（用户）", (taskId) =>
+    updatePackage(null, true, false, taskId),
+  );
+  if (!userTask.success) {
+    message.error(failMessage("更新", userTask));
+    return;
+  }
+  if (hasGlobalUpdates.value) {
+    const globalTask = await runTask("全部更新（全局）", (taskId) =>
+      updatePackage(null, true, true, taskId),
+    );
+    if (!globalTask.success) {
+      message.error(failMessage("全局更新", globalTask));
+      return;
+    }
+  }
+  message.success("更新完成");
+  await apps.load();
+}
 </script>
 
 <style scoped>
@@ -34,6 +87,11 @@ const apps = useAppsStore();
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+.toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 8px 0;
 }
 .alert {
   margin: 8px 8px 0;

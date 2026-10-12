@@ -9,6 +9,7 @@
         <BucketsPage v-else-if="ui.activePage === 'buckets'" />
         <MaintenancePage v-else-if="ui.activePage === 'maintenance'" />
         <ProfilesPage v-else-if="ui.activePage === 'profiles'" />
+        <BackupPage v-else-if="ui.activePage === 'backup'" />
         <SettingsPage v-else-if="ui.activePage === 'settings'" />
         <PlaceholderPage v-else :title="placeholderTitle" />
       </div>
@@ -27,6 +28,7 @@ import StorePage from "../../pages/StorePage.vue";
 import BucketsPage from "../../pages/BucketsPage.vue";
 import MaintenancePage from "../../pages/MaintenancePage.vue";
 import ProfilesPage from "../../pages/ProfilesPage.vue";
+import BackupPage from "../../pages/BackupPage.vue";
 import SettingsPage from "../../pages/SettingsPage.vue";
 import PlaceholderPage from "../../pages/PlaceholderPage.vue";
 import { useUiStore } from "../../stores/ui";
@@ -38,7 +40,6 @@ import { useBucketsStore } from "../../stores/buckets";
 const ui = useUiStore();
 const placeholders: Record<string, string> = {
   migrate: "环境迁移（M6：注册表扫描与接管）",
-  backup: "备份（M5：快照与恢复）",
 };
 const placeholderTitle = computed(() => placeholders[ui.activePage] ?? "开发中");
 

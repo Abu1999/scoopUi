@@ -75,6 +75,7 @@ export const useSnapshotsStore = defineStore("snapshots", {
       this.error = null;
       this.restoreError = null;
       this.steps = [];
+      this.plan = null;
       try {
         await this.loadPlan();
       } catch (e) {
@@ -104,7 +105,9 @@ export const useSnapshotsStore = defineStore("snapshots", {
       this.restoring = true;
       useUiStore().logDrawerOpen = true;
       try {
-        await restoreSnapshotConfig(id);
+        if (!this.plan || this.plan.config_present) {
+          await restoreSnapshotConfig(id);
+        }
       } catch (e) {
         this.restoreError = String(e);
         this.restoring = false;
@@ -146,6 +149,7 @@ export const useSnapshotsStore = defineStore("snapshots", {
     },
     async installApp(app: SnapshotApp): Promise<boolean> {
       if (!this.selectedId) return false;
+      this.restoreError = null;
       const record = await runTask(
         `安装 ${app.name}${app.global ? "（全局）" : ""}`,
         (taskId) => installPackage(app.name, app.bucket, null, app.global, taskId),

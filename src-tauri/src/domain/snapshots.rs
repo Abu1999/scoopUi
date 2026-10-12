@@ -267,7 +267,7 @@ pub fn restore_config(dir: &Path, id: &str, config_path: &Path) -> Result<(), Ap
     serde_json::from_str::<serde_json::Value>(&text)
         .map_err(|_| AppError::Other(format!("快照文件损坏: {id}")))?;
     if config_path.is_file() {
-        let _ = std::fs::copy(config_path, config_path.with_extension("json.bak"));
+        std::fs::copy(config_path, config_path.with_extension("json.bak"))?;
     }
     if let Some(parent) = config_path.parent() {
         std::fs::create_dir_all(parent)?;

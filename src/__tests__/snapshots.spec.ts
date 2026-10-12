@@ -135,4 +135,36 @@ describe("snapshots store", () => {
     expect(mocks.createSnapshot).toHaveBeenCalled();
     expect(store.selectedId).toBe("200");
   });
+
+  it("无配置快照跳过配置恢复但仍恢复软件源", async () => {
+    mocks.listSnapshots.mockResolvedValue([summary]);
+    mocks.restoreSnapshotPlan.mockResolvedValue({ ...planFixture, config_present: false });
+    mocks.restoreSnapshotBuckets.mockResolvedValue({
+      reset: [],
+      missing: [{ name: "extras", source: "https://gitee.com/scoop-installer/Extras" }],
+      skipped: [],
+    });
+    mocks.bucketAdd.mockResolvedValue(undefined);
+    const store = useSnapshotsStore();
+    await store.load();
+    const running = store.restoreConfigAndBuckets();
+    await flushPromises();
+    expect(mocks.restoreSnapshotConfig).not.toHaveBeenCalled();
+    expect(mocks.restoreSnapshotBuckets).toHaveBeenCalledWith("100");
+    const taskId = mocks.bucketAdd.mock.calls[0][2];
+    useLogsStore().end({ taskId, code: 0, success: true });
+    await flushPromises();
+    expect(await running).toBe(true);
+  });
+
+  it("select 切换失败时清空旧计划并记错", async () => {
+    mocks.listSnapshots.mockResolvedValue([summary]);
+    mocks.restoreSnapshotPlan.mockResolvedValueOnce(planFixture).mockRejectedValueOnce("计划计算失败");
+    const store = useSnapshotsStore();
+    await store.load();
+    expect(store.plan).not.toBeNull();
+    await store.select("100");
+    expect(store.plan).toBeNull();
+    expect(store.error).toContain("计划计算失败");
+  });
 });

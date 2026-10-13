@@ -1,3 +1,4 @@
+pub mod bootstrap;
 pub mod buckets;
 pub mod configfile;
 pub mod icons;

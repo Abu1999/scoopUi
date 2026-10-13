@@ -1,6 +1,6 @@
 [package]
 name = "scoopui"
-version = "0.1.0"
+version = "0.1.1"
 description = "Scoop 包管理器的 Windows 桌面图形界面"
 authors = ["you"]
 edition = "2021"

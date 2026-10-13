@@ -57,7 +57,14 @@ pub fn dir_acceptable(dir: &Path) -> Result<(), AppError> {
 }
 
 pub fn staging_dir(dir: &Path) -> PathBuf {
-    dir.join(".scoopui-extract")
+    match dir.file_name() {
+        Some(name) => {
+            let mut sibling = name.to_os_string();
+            sibling.push(".scoopui-extract");
+            dir.with_file_name(sibling)
+        }
+        None => dir.join(".scoopui-extract"),
+    }
 }
 
 pub fn tar_program() -> String {
@@ -76,6 +83,7 @@ pub fn extract_command(
     tar_available: bool,
     script_dir: &Path,
 ) -> Result<(ScoopCommand, Option<PathBuf>), AppError> {
+    let _ = std::fs::remove_dir_all(staging);
     std::fs::create_dir_all(staging)?;
     if tar_available {
         let cmd = ScoopCommand {
@@ -95,9 +103,9 @@ pub fn extract_command(
     std::fs::create_dir_all(script_dir)?;
     let script = script_dir.join("expand-scoop-bundle.ps1");
     let text = format!(
-        "$ErrorActionPreference = 'Stop'\r\nExpand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force\r\nexit $LASTEXITCODE\r\n",
-        zip.display(),
-        staging.display()
+        "$ErrorActionPreference = 'Stop'\r\nExpand-Archive -LiteralPath {} -DestinationPath {} -Force\r\nexit $LASTEXITCODE\r\n",
+        crate::domain::scoopcmd::quote_ps(&zip.display().to_string()),
+        crate::domain::scoopcmd::quote_ps(&staging.display().to_string())
     );
     std::fs::write(&script, text)?;
     let cmd = ScoopCommand {
@@ -128,10 +136,6 @@ pub fn finalize(dir: &Path, staging: &Path) -> Result<usize, AppError> {
     if !src_apps.is_dir() || !src_buckets.is_dir() {
         return Err(AppError::Other("解压内容不完整（缺少 apps/buckets）".to_string()));
     }
-    std::fs::create_dir_all(dir)?;
-    for sub in ["cache", "persist", "shims"] {
-        std::fs::create_dir_all(dir.join(sub))?;
-    }
     let dst_apps = dir.join("apps");
     let dst_buckets = dir.join("buckets");
     if dst_apps.exists() || dst_buckets.exists() {
@@ -140,18 +144,33 @@ pub fn finalize(dir: &Path, staging: &Path) -> Result<usize, AppError> {
             dir.display()
         )));
     }
-    std::fs::rename(&src_apps, &dst_apps)?;
-    std::fs::rename(&src_buckets, &dst_buckets)?;
-    let scoop_ps1 = dst_apps.join("scoop").join("current").join("bin").join("scoop.ps1");
-    let manifest_count =
-        crate::domain::buckets::count_json_recursive(&dst_buckets.join("main").join("bucket"));
-    if !scoop_ps1.is_file() || manifest_count == 0 {
-        let _ = std::fs::remove_dir_all(&dst_apps);
-        let _ = std::fs::remove_dir_all(&dst_buckets);
-        return Err(AppError::Other("内置快照内容不完整，已清理".to_string()));
+    std::fs::create_dir_all(dir)?;
+    let result = (|| -> Result<usize, AppError> {
+        std::fs::rename(&src_apps, &dst_apps)?;
+        std::fs::rename(&src_buckets, &dst_buckets)?;
+        let scoop_ps1 = dst_apps.join("scoop").join("current").join("bin").join("scoop.ps1");
+        let manifest_count =
+            crate::domain::buckets::count_json_recursive(&dst_buckets.join("main").join("bucket"));
+        if !scoop_ps1.is_file() || manifest_count == 0 {
+            return Err(AppError::Other("内置快照内容不完整".to_string()));
+        }
+        for sub in ["cache", "persist", "shims"] {
+            std::fs::create_dir_all(dir.join(sub))?;
+        }
+        Ok(manifest_count)
+    })();
+    match result {
+        Ok(count) => {
+            let _ = std::fs::remove_dir_all(staging);
+            Ok(count)
+        }
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&dst_apps);
+            let _ = std::fs::remove_dir_all(&dst_buckets);
+            let _ = std::fs::remove_dir_all(staging);
+            Err(e)
+        }
     }
-    let _ = std::fs::remove_dir_all(staging);
-    Ok(manifest_count)
 }
 
 pub fn write_root_path_config(user_config_home: &Path, dir: &Path) -> Result<(), AppError> {
@@ -274,10 +293,15 @@ pub fn assemble_report(
 }
 
 pub fn validate_installer_text(text: &str) -> Result<(), AppError> {
-    if !text.contains("ScoopDir") || !text.contains("Install-Scoop") {
-        return Err(AppError::Other("下载的安装脚本内容异常".to_string()));
+    let ok = text.len() > 1000
+        && text.contains("param(")
+        && text.contains("$ScoopDir")
+        && text.contains("Install-Scoop");
+    if ok {
+        Ok(())
+    } else {
+        Err(AppError::Other("下载的安装脚本内容异常".to_string()))
     }
-    Ok(())
 }
 
 pub fn download_installer(settings_dir: &Path, proxy: Option<&str>) -> Result<PathBuf, AppError> {
@@ -295,6 +319,12 @@ pub fn download_installer(settings_dir: &Path, proxy: Option<&str>) -> Result<Pa
         .get("https://get.scoop.sh")
         .send()
         .map_err(|e| AppError::Other(format!("下载 Scoop 安装脚本失败: {e}")))?;
+    if !resp.status().is_success() {
+        return Err(AppError::Other(format!(
+            "下载 Scoop 安装脚本失败: HTTP {}",
+            resp.status()
+        )));
+    }
     let text = resp
         .text()
         .map_err(|e| AppError::Other(format!("读取安装脚本失败: {e}")))?;
@@ -385,17 +415,22 @@ pub fn add_shims_to_user_path(shims: &Path) -> Result<(), AppError> {
                 buf.as_mut_ptr(),
                 &mut size,
             );
-            if query2 == 0 {
-                let len = size as usize / 2;
-                let mut utf16 = Vec::with_capacity(len);
-                for i in 0..len {
-                    utf16.push(u16::from_le_bytes([buf[i * 2], buf[i * 2 + 1]]));
-                }
-                while utf16.last() == Some(&0) {
-                    utf16.pop();
-                }
-                current = String::from_utf16_lossy(&utf16).to_string();
+            if query2 != 0 {
+                RegCloseKey(hkey);
+                return Err(AppError::Other("读取用户 PATH 失败".to_string()));
             }
+            let len = size as usize / 2;
+            let mut utf16 = Vec::with_capacity(len);
+            for chunk in buf.chunks_exact(2).take(len) {
+                utf16.push(u16::from_le_bytes([chunk[0], chunk[1]]));
+            }
+            while utf16.last() == Some(&0) {
+                utf16.pop();
+            }
+            current = String::from_utf16_lossy(&utf16).to_string();
+        } else if query != 0 && query != 2 {
+            RegCloseKey(hkey);
+            return Err(AppError::Other("读取用户 PATH 失败".to_string()));
         }
         let merged = crate::domain::bootstrap::merge_path_var(&current, shims);
         if merged != current {
@@ -557,9 +592,38 @@ mod tests {
     }
 
     #[test]
+    fn staging_is_sibling_of_target() {
+        assert_eq!(
+            staging_dir(Path::new(r"C:\scoop")),
+            PathBuf::from(r"C:\scoop.scoopui-extract")
+        );
+    }
+
+    #[test]
+    fn finalize_rolls_back_on_incomplete_content() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("scoop");
+        let staging = staging_dir(&dir);
+        std::fs::create_dir_all(staging.join("apps").join("scoop").join("current").join("bin"))
+            .unwrap();
+        std::fs::write(
+            staging.join("apps").join("scoop").join("current").join("bin").join("scoop.ps1"),
+            "#",
+        )
+        .unwrap();
+        std::fs::create_dir_all(staging.join("buckets").join("main").join("bucket")).unwrap();
+        assert!(finalize(&dir, &staging).is_err());
+        assert!(!dir.join("apps").exists());
+        assert!(!dir.join("buckets").exists());
+        assert!(!staging.exists());
+    }
+
+    #[test]
     fn installer_text_validation() {
-        assert!(validate_installer_text("param([String] $ScoopDir)\nfunction Install-Scoop {}\n").is_ok());
-        assert!(validate_installer_text("hello").is_err());
+        let mut ok = String::from("param(\n[String] $ScoopDir\n)\nfunction Install-Scoop {}\n");
+        ok.push_str(&"# filler line\n".repeat(100));
+        assert!(validate_installer_text(&ok).is_ok());
+        assert!(validate_installer_text("param( $ScoopDir ) Install-Scoop").is_err());
     }
 
     #[test]

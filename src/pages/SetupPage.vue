@@ -160,9 +160,22 @@ async function finish(target: string) {
   ui.setPage("installed");
 }
 
+async function finishSafely(target: string) {
+  try {
+    await finish(target);
+  } catch (e) {
+    message.error(String(e));
+  }
+}
+
 async function doInit() {
   const target = dir.value.trim();
-  if (!target || !canInit.value) return;
+  if (!target || busy.value) return;
+  await refreshCheck();
+  if (!report.value?.dir_ok) {
+    message.error(report.value?.dir_reason ?? "目标目录不可用");
+    return;
+  }
   ui.logDrawerOpen = true;
   const record = await runTask("初始化 Scoop（内置）", (taskId) => extractScoopBundle(target, taskId));
   if (!record.success) {
@@ -175,12 +188,17 @@ async function doInit() {
     message.error(String(e));
     return;
   }
-  await finish(target);
+  await finishSafely(target);
 }
 
 async function doOnline() {
   const target = dir.value.trim();
-  if (!target || !canInit.value) return;
+  if (!target || busy.value) return;
+  await refreshCheck();
+  if (!report.value?.dir_ok) {
+    message.error(report.value?.dir_reason ?? "目标目录不可用");
+    return;
+  }
   ui.logDrawerOpen = true;
   const proxyValue = proxy.value.trim() === "" ? null : proxy.value.trim();
   const record = await runTask("安装 Scoop（在线）", (taskId) =>
@@ -190,7 +208,7 @@ async function doOnline() {
     message.error(failMessage("安装", record));
     return;
   }
-  await finish(target);
+  await finishSafely(target);
 }
 
 async function useExisting(existing?: string) {
@@ -200,11 +218,7 @@ async function useExisting(existing?: string) {
     if (typeof picked !== "string") return;
     target = picked;
   }
-  try {
-    await finish(target);
-  } catch (e) {
-    message.error(String(e));
-  }
+  await finishSafely(target);
 }
 </script>
 

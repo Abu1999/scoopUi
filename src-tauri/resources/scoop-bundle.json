@@ -1,0 +1,11 @@
+{
+    "built":  "2026-10-13 16:51:02",
+    "scoop":  {
+                  "repo":  "https://gitee.com/scoop-installer/scoop",
+                  "commit":  "ce867cccb6d4e7f7ad5cee8b57bc5b9b94cd7840"
+              },
+    "main":  {
+                 "repo":  "https://gitee.com/scoop-installer/Main",
+                 "commit":  "6686d10590e5de4768ca5e2dcd9cfa89020779bb"
+             }
+}

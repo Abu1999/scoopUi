@@ -26,6 +26,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": ["resources/scoop-bundle.zip", "resources/scoop-bundle.json"],
     "shortDescription": "Scoop 包管理器的 Windows 桌面图形界面",
     "longDescription": "为 Scoop 打造的全功能桌面客户端：应用与软件源管理、离线搜索、镜像与下载加速、配置集、备份恢复、环境迁移（Tauri 2 + Vue 3 + Rust）",
     "category": "DeveloperTool",

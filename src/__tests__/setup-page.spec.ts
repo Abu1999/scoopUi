@@ -113,6 +113,21 @@ describe("SetupPage", () => {
     expect(useUiStore().activePage).toBe("installed");
   });
 
+  it("快速连点初始化只执行一次", async () => {
+    mocks.extractScoopBundle.mockResolvedValue(undefined);
+    mocks.addRoot.mockResolvedValue({});
+    mocks.setActiveRoot.mockResolvedValue({});
+    const wrapper = mount(SetupPage);
+    await flushPromises();
+    const btn = findButton(wrapper, "一键初始化");
+    const first = btn.trigger("click");
+    const second = btn.trigger("click");
+    await first;
+    await second;
+    await flushPromises();
+    expect(mocks.extractScoopBundle).toHaveBeenCalledTimes(1);
+  });
+
   it("解压失败提示错误且不继续", async () => {
     mocks.extractScoopBundle.mockResolvedValue(undefined);
     const wrapper = mount(SetupPage);

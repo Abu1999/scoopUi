@@ -83,8 +83,15 @@ pub fn extract_command(
     tar_available: bool,
     script_dir: &Path,
 ) -> Result<(ScoopCommand, Option<PathBuf>), AppError> {
+    if staging.exists() && !staging_owned(staging) {
+        return Err(AppError::Other(format!(
+            "暂存目录被其他内容占用: {}",
+            staging.display()
+        )));
+    }
     let _ = std::fs::remove_dir_all(staging);
     std::fs::create_dir_all(staging)?;
+    std::fs::write(staging.join(".scoopui-staging"), "scoopui")?;
     if tar_available {
         let cmd = ScoopCommand {
             program: tar_program(),
@@ -107,7 +114,9 @@ pub fn extract_command(
         crate::domain::scoopcmd::quote_ps(&zip.display().to_string()),
         crate::domain::scoopcmd::quote_ps(&staging.display().to_string())
     );
-    std::fs::write(&script, text)?;
+    let mut bytes = vec![0xEFu8, 0xBB, 0xBF];
+    bytes.extend_from_slice(text.as_bytes());
+    std::fs::write(&script, bytes)?;
     let cmd = ScoopCommand {
         program: "powershell.exe".to_string(),
         args: vec![
@@ -122,6 +131,13 @@ pub fn extract_command(
         display: "extract scoop bundle (Expand-Archive)".to_string(),
     };
     Ok((cmd, Some(script)))
+}
+
+fn staging_owned(staging: &Path) -> bool {
+    staging.join(".scoopui-staging").is_file()
+        || std::fs::read_dir(staging)
+            .map(|mut it| it.next().is_none())
+            .unwrap_or(false)
 }
 
 pub fn finalize(dir: &Path, staging: &Path) -> Result<usize, AppError> {
@@ -167,6 +183,9 @@ pub fn finalize(dir: &Path, staging: &Path) -> Result<usize, AppError> {
         Err(e) => {
             let _ = std::fs::remove_dir_all(&dst_apps);
             let _ = std::fs::remove_dir_all(&dst_buckets);
+            for sub in ["cache", "persist", "shims"] {
+                let _ = std::fs::remove_dir_all(dir.join(sub));
+            }
             let _ = std::fs::remove_dir_all(staging);
             Err(e)
         }
@@ -293,10 +312,7 @@ pub fn assemble_report(
 }
 
 pub fn validate_installer_text(text: &str) -> Result<(), AppError> {
-    let ok = text.len() > 1000
-        && text.contains("param(")
-        && text.contains("$ScoopDir")
-        && text.contains("Install-Scoop");
+    let ok = text.len() > 1000 && text.contains("$ScoopDir") && text.contains("Install-Scoop");
     if ok {
         Ok(())
     } else {
@@ -620,10 +636,26 @@ mod tests {
 
     #[test]
     fn installer_text_validation() {
-        let mut ok = String::from("param(\n[String] $ScoopDir\n)\nfunction Install-Scoop {}\n");
-        ok.push_str(&"# filler line\n".repeat(100));
-        assert!(validate_installer_text(&ok).is_ok());
-        assert!(validate_installer_text("param( $ScoopDir ) Install-Scoop").is_err());
+        let filler = "x".repeat(1200);
+        assert!(validate_installer_text(&format!("{filler}$ScoopDir Install-Scoop")).is_ok());
+        assert!(validate_installer_text(&format!("{filler}Install-Scoop")).is_err());
+        assert!(validate_installer_text(&format!("{filler}$ScoopDir")).is_err());
+        assert!(validate_installer_text("$ScoopDir Install-Scoop").is_err());
+    }
+
+    #[test]
+    fn staging_marker_guards_foreign_dirs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let zip = tmp.path().join("b.zip");
+        std::fs::write(&zip, "z").unwrap();
+        let staging = tmp.path().join("out.scoopui-extract");
+        extract_command(&zip, &staging, true, tmp.path()).unwrap();
+        assert!(staging.join(".scoopui-staging").is_file());
+        extract_command(&zip, &staging, true, tmp.path()).unwrap();
+        std::fs::remove_file(staging.join(".scoopui-staging")).unwrap();
+        std::fs::write(staging.join("user-data.txt"), "keep").unwrap();
+        assert!(extract_command(&zip, &staging, true, tmp.path()).is_err());
+        assert!(staging.join("user-data.txt").is_file());
     }
 
     #[test]

@@ -98,6 +98,7 @@ async function updateAll() {
 }
 .list {
   flex: 1;
+  margin-top: 8px;
   min-height: 0;
 }
 .detail {

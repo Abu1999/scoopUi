@@ -1,5 +1,6 @@
 pub mod app_settings;
 pub mod apps;
+pub mod bootstrap;
 pub mod buckets;
 pub mod config;
 pub mod icons;

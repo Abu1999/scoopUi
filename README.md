@@ -159,9 +159,3 @@ scoop update git -g
 - 不代搬旧软件的用户数据（提供引导）
 - 无托盘常驻与开机自启（后续可评估）
 - 暂不提供多语言（界面为中文）
-
-## 文档
-
-- 设计文档：`docs/superpowers/specs/2026-09-17-scoopui-design.md`（总设计）及各里程碑专项设计
-- 实现计划：`docs/superpowers/plans/`
-- 手工验收清单：`docs/acceptance.md`

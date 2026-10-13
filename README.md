@@ -102,6 +102,18 @@ pnpm build
 cd src-tauri && cargo test --test live_flows -- --ignored --nocapture
 ```
 
+## 首次使用（自动初始化 Scoop）
+
+安装包内置 Scoop 与 main 软件源快照（浅克隆，含 `.git`）。首次启动若未检测到 Scoop，会显示引导页：
+
+- 「一键初始化（内置，无需下载）」：离线释放内置快照到目标目录（默认 `%USERPROFILE%\scoop`，可修改），可选创建 `scoop` 命令并加入 PATH
+- 「在线安装最新版」：适合网络畅通、希望直接安装最新 Scoop 的场景
+- 「已经装过 Scoop？选择根目录」：接入已有安装
+
+初始化后即可使用全部功能（软件源索引、安装/卸载/更新应用等）。装好 git 后可用「更新 Scoop 与软件源」获取最新内容；无 git 时安装应用不受影响。
+
+内置快照随 ScoopUI 版本刷新（`scripts/build-scoop-bundle.ps1` 重新打包），引导页会显示快照版本。
+
 ## 数据目录
 
 | 路径 | 用途 |

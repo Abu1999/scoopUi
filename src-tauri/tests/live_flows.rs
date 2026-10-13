@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use scoopui_lib::domain::{
-    buckets, configfile, index, installed, migrate, postinstall, profiles, registry, root, scoopcmd,
-    snapshots,
+    bootstrap, buckets, configfile, index, installed, migrate, postinstall, profiles, registry,
+    root, scoopcmd, snapshots,
 };
 
 fn home() -> Option<PathBuf> {
@@ -194,4 +194,43 @@ fn live_register_git_install_hooks() {
     println!("已注册: {done:?}");
     assert!(done.iter().any(|d| d.contains("context")), "应导入 install-context.reg");
     println!("✅ git 安装钩子注册通过");
+}
+
+#[test]
+#[ignore = "真实环境：内置快照解压与校验；cargo test --test live_flows -- --ignored --nocapture"]
+fn live_bootstrap_from_bundle() {
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources");
+    let zip = dir.join("scoop-bundle.zip");
+    assert!(zip.is_file(), "缺少内置快照资源");
+    let info = bootstrap::read_bundle_info(&dir.join("scoop-bundle.json")).unwrap();
+    println!(
+        "bundle: built={} scoop={} main={}",
+        info.built,
+        &info.scoop_commit[..7],
+        &info.main_commit[..7]
+    );
+    let tmp = tempfile::tempdir().unwrap();
+    let target = tmp.path().join("scoop");
+    let staging = bootstrap::staging_dir(&target);
+    let probes = bootstrap::probe();
+    let (cmd, _script) =
+        bootstrap::extract_command(&zip, &staging, probes.tar_available, tmp.path()).unwrap();
+    let status = std::process::Command::new(&cmd.program)
+        .args(&cmd.args)
+        .status()
+        .unwrap();
+    assert!(status.success(), "解压失败");
+    let count = bootstrap::finalize(&target, &staging).unwrap();
+    println!("main manifests = {count}");
+    assert!(count > 1000, "main 清单数异常: {count}");
+    root::validate(&target).unwrap();
+    assert!(target
+        .join("apps")
+        .join("scoop")
+        .join("current")
+        .join("bin")
+        .join("scoop.ps1")
+        .is_file());
+    assert!(target.join("apps").join("scoop").join("current").join(".git").is_dir());
+    println!("✅ 内置快照初始化通过");
 }

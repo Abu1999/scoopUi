@@ -1,0 +1,151 @@
+import { flushPromises, mount } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const messageError = vi.hoisted(() => vi.fn());
+const messageSuccess = vi.hoisted(() => vi.fn());
+const dialogOpen = vi.hoisted(() => vi.fn());
+const mocks = vi.hoisted(() => ({
+  checkScoopPrereqs: vi.fn(),
+  getScoopBundleInfo: vi.fn(),
+  extractScoopBundle: vi.fn(),
+  finalizeScoopBootstrap: vi.fn(),
+  installScoopOnline: vi.fn(),
+  addRoot: vi.fn(),
+  setActiveRoot: vi.fn(),
+  detectRoots: vi.fn(),
+  getActiveRoot: vi.fn(),
+  listInstalledApps: vi.fn(),
+  listBuckets: vi.fn(),
+  listUpdates: vi.fn(),
+  fetchIcon: vi.fn(),
+}));
+vi.mock("../api/commands", () => mocks);
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: dialogOpen }));
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(() => Promise.resolve(() => {})),
+}));
+vi.mock("naive-ui", async () => {
+  const actual = await vi.importActual<typeof import("naive-ui")>("naive-ui");
+  return {
+    ...actual,
+    useMessage: () => ({
+      error: messageError,
+      success: messageSuccess,
+      info: vi.fn(),
+      warning: vi.fn(),
+    }),
+  };
+});
+
+import SetupPage from "../pages/SetupPage.vue";
+import { useLogsStore } from "../stores/logs";
+import { useUiStore } from "../stores/ui";
+import type { PrereqReport } from "../api/types";
+
+const report: PrereqReport = {
+  default_dir: "C:\\Users\\Administrator\\scoop",
+  dir: "C:\\Users\\Administrator\\scoop",
+  dir_ok: true,
+  dir_reason: null,
+  powershell_ok: true,
+  tar_available: true,
+  git_available: true,
+  elevated: false,
+  existing_root: null,
+};
+
+const bundle = {
+  built: "2026-10-13 16:50:07",
+  scoop_commit: "ce867cccb6d4e7f7ad5cee8b57bc5b9b94cd7840",
+  main_commit: "6686d10590e5de4768ca5e2dcd9cfa89020779bb",
+};
+
+function findButton(wrapper: ReturnType<typeof mount>, text: string) {
+  const btn = wrapper.findAll("button").find((b) => b.text().includes(text));
+  expect(btn).toBeTruthy();
+  return btn!;
+}
+
+describe("SetupPage", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    mocks.checkScoopPrereqs.mockResolvedValue(report);
+    mocks.getScoopBundleInfo.mockResolvedValue(bundle);
+    mocks.detectRoots.mockResolvedValue([]);
+    mocks.getActiveRoot.mockResolvedValue(null);
+    mocks.listInstalledApps.mockResolvedValue([]);
+    mocks.listBuckets.mockResolvedValue([]);
+    mocks.listUpdates.mockResolvedValue([]);
+    mocks.fetchIcon.mockResolvedValue(null);
+    mocks.finalizeScoopBootstrap.mockResolvedValue(1679);
+  });
+
+  it("渲染环境卡与快照信息", async () => {
+    const wrapper = mount(SetupPage);
+    await flushPromises();
+    expect(wrapper.text()).toContain("内置快照");
+    expect(wrapper.text()).toContain("ce867cc");
+    expect(wrapper.text()).toContain("PowerShell");
+    expect(wrapper.text()).toContain("一键初始化");
+  });
+
+  it("一键初始化成功链路", async () => {
+    mocks.extractScoopBundle.mockResolvedValue(undefined);
+    mocks.addRoot.mockResolvedValue({});
+    mocks.setActiveRoot.mockResolvedValue({});
+    const wrapper = mount(SetupPage);
+    await flushPromises();
+    await findButton(wrapper, "一键初始化").trigger("click");
+    await flushPromises();
+    expect(mocks.extractScoopBundle).toHaveBeenCalledWith(
+      "C:\\Users\\Administrator\\scoop",
+      expect.any(String),
+    );
+    const taskId = mocks.extractScoopBundle.mock.calls[0][1];
+    useLogsStore().end({ taskId, code: 0, success: true });
+    await flushPromises();
+    expect(mocks.finalizeScoopBootstrap).toHaveBeenCalledWith("C:\\Users\\Administrator\\scoop", true);
+    expect(mocks.addRoot).toHaveBeenCalledWith("C:\\Users\\Administrator\\scoop");
+    expect(mocks.setActiveRoot).toHaveBeenCalledWith("C:\\Users\\Administrator\\scoop");
+    expect(messageSuccess).toHaveBeenCalledWith("Scoop 已就绪");
+    expect(useUiStore().activePage).toBe("installed");
+  });
+
+  it("解压失败提示错误且不继续", async () => {
+    mocks.extractScoopBundle.mockResolvedValue(undefined);
+    const wrapper = mount(SetupPage);
+    await flushPromises();
+    await findButton(wrapper, "一键初始化").trigger("click");
+    await flushPromises();
+    const taskId = mocks.extractScoopBundle.mock.calls[0][1];
+    useLogsStore().end({ taskId, code: 1, success: false });
+    await flushPromises();
+    expect(messageError).toHaveBeenCalled();
+    expect(mocks.finalizeScoopBootstrap).not.toHaveBeenCalled();
+    expect(mocks.addRoot).not.toHaveBeenCalled();
+  });
+
+  it("选择目录更新目标路径并重新检查", async () => {
+    dialogOpen.mockResolvedValue("D:\\scoop-test");
+    const wrapper = mount(SetupPage);
+    await flushPromises();
+    await findButton(wrapper, "选择").trigger("click");
+    await flushPromises();
+    expect(mocks.checkScoopPrereqs).toHaveBeenLastCalledWith("D:\\scoop-test");
+  });
+
+  it("在线安装入口调用命令", async () => {
+    mocks.installScoopOnline.mockResolvedValue(undefined);
+    const wrapper = mount(SetupPage);
+    await flushPromises();
+    await findButton(wrapper, "在线安装").trigger("click");
+    await flushPromises();
+    expect(mocks.installScoopOnline).toHaveBeenCalledWith(
+      "C:\\Users\\Administrator\\scoop",
+      null,
+      expect.any(String),
+    );
+  });
+});

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => {
   const calls: string[] = [];
   const failInit = { value: false };
+  const rootActive = { value: null as unknown };
   const commands = {
     getActiveRoot: vi.fn(async () => {
       calls.push("getActiveRoot");
@@ -30,7 +31,7 @@ const h = vi.hoisted(() => {
     calls.push("logs.init");
     if (failInit.value) throw new Error("listen 失败");
   });
-  return { calls, commands, init, failInit };
+  return { calls, commands, init, failInit, rootActive };
 });
 
 vi.mock("../api/commands", () => h.commands);
@@ -39,6 +40,8 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openPath: vi.fn(), openUrl: vi.fn(
 vi.mock("../stores/logs", () => ({ useLogsStore: () => ({ init: h.init }) }));
 vi.mock("../stores/roots", () => ({
   useRootsStore: () => ({
+    active: h.rootActive.value,
+    loading: false,
     load: async () => {
       await h.commands.getActiveRoot();
       await h.commands.detectRoots();
@@ -75,6 +78,7 @@ const stubs = {
   SettingsPage: true,
   ProfilesPage: true,
   BackupPage: true,
+  SetupPage: true,
   PlaceholderPage: true,
 };
 
@@ -82,6 +86,26 @@ describe("AppShell 启动时序", () => {
   beforeEach(() => {
     h.calls.length = 0;
     h.failInit.value = false;
+    h.rootActive.value = {
+      path: "C:\\scoop",
+      valid: true,
+      source: "default",
+      is_active: true,
+      app_count: 0,
+      bucket_count: 0,
+      has_portable_config: false,
+      global_dir: null,
+    };
+  });
+
+  it("无根目录时显示初始化引导页", async () => {
+    h.rootActive.value = null;
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const wrapper = mount(AppShell, { global: { plugins: [pinia], stubs } });
+    await flushPromises();
+    await flushPromises();
+    expect(wrapper.find("setup-page-stub").exists()).toBe(true);
   });
 
   it("按日志→根目录→应用→软件源的顺序串行加载", async () => {

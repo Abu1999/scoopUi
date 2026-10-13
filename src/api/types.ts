@@ -104,6 +104,24 @@ export interface ProxyTest {
   proxy_info: string | null;
 }
 
+export interface BundleInfo {
+  built: string;
+  scoop_commit: string;
+  main_commit: string;
+}
+
+export interface PrereqReport {
+  default_dir: string;
+  dir: string;
+  dir_ok: boolean;
+  dir_reason: string | null;
+  powershell_ok: boolean;
+  tar_available: boolean;
+  git_available: boolean;
+  elevated: boolean;
+  existing_root: string | null;
+}
+
 export interface BucketRef {
   name: string;
   source: string | null;

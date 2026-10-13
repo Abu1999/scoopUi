@@ -32,6 +32,11 @@ import {
   profileDiff,
   refreshPackageIndex,
   registerAppInstall,
+  checkScoopPrereqs,
+  extractScoopBundle,
+  finalizeScoopBootstrap,
+  getScoopBundleInfo,
+  installScoopOnline,
   renameProfile,
   restoreSnapshotBuckets,
   restoreSnapshotConfig,
@@ -258,5 +263,29 @@ describe("commands 包装", () => {
   it("安装钩子命令名与参数符合后端契约", async () => {
     await registerAppInstall("git", true);
     expect(invokeMock).toHaveBeenLastCalledWith("register_app_install", { name: "git", global: true });
+  });
+
+  it("M8 引导命令名与参数符合后端契约", async () => {
+    await getScoopBundleInfo();
+    expect(invokeMock).toHaveBeenLastCalledWith("get_scoop_bundle_info", undefined);
+
+    await checkScoopPrereqs("D:\\scoop");
+    expect(invokeMock).toHaveBeenLastCalledWith("check_scoop_prereqs", { dir: "D:\\scoop" });
+
+    await extractScoopBundle("D:\\scoop", "t-1");
+    expect(invokeMock).toHaveBeenLastCalledWith("extract_scoop_bundle", { dir: "D:\\scoop", taskId: "t-1" });
+
+    await finalizeScoopBootstrap("D:\\scoop", true);
+    expect(invokeMock).toHaveBeenLastCalledWith("finalize_scoop_bootstrap", {
+      dir: "D:\\scoop",
+      addToPath: true,
+    });
+
+    await installScoopOnline("D:\\scoop", null, "t-1");
+    expect(invokeMock).toHaveBeenLastCalledWith("install_scoop_online", {
+      dir: "D:\\scoop",
+      proxy: null,
+      taskId: "t-1",
+    });
   });
 });

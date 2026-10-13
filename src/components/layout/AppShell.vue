@@ -4,7 +4,8 @@
     <div class="main">
       <TopBar />
       <div class="content">
-        <InstalledPage v-if="ui.activePage === 'installed'" />
+        <SetupPage v-if="booted && !roots.active" />
+        <InstalledPage v-else-if="ui.activePage === 'installed'" />
         <StorePage v-else-if="ui.activePage === 'store'" />
         <BucketsPage v-else-if="ui.activePage === 'buckets'" />
         <MaintenancePage v-else-if="ui.activePage === 'maintenance'" />
@@ -20,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, ref } from "vue";
 import SideBar from "./SideBar.vue";
 import TopBar from "./TopBar.vue";
 import LogDrawer from "./LogDrawer.vue";
@@ -32,6 +33,7 @@ import MigratePage from "../../pages/MigratePage.vue";
 import ProfilesPage from "../../pages/ProfilesPage.vue";
 import BackupPage from "../../pages/BackupPage.vue";
 import SettingsPage from "../../pages/SettingsPage.vue";
+import SetupPage from "../../pages/SetupPage.vue";
 import PlaceholderPage from "../../pages/PlaceholderPage.vue";
 import { useUiStore } from "../../stores/ui";
 import { useLogsStore } from "../../stores/logs";
@@ -40,6 +42,8 @@ import { useAppsStore } from "../../stores/apps";
 import { useBucketsStore } from "../../stores/buckets";
 
 const ui = useUiStore();
+const roots = useRootsStore();
+const booted = ref(false);
 
 onMounted(async () => {
   await useLogsStore()
@@ -48,6 +52,7 @@ onMounted(async () => {
   await useRootsStore().load();
   await useAppsStore().load();
   await useBucketsStore().load();
+  booted.value = true;
 });
 </script>
 

@@ -1,10 +1,12 @@
 import type {
   AppSettings,
   BucketInfo,
+  BundleInfo,
   InstalledApp,
   MigrationEntry,
   MirrorInfo,
   PackageEntry,
+  PrereqReport,
   Profile,
   ProfileDiff,
   ProfileSummary,
@@ -65,6 +67,14 @@ export const setAria2 = (enabled: boolean, split: number | null, maxConnection: 
 export const testUrlProxy = (proxy: string | null) => invoke<ProxyTest>("test_url_proxy", { proxy });
 export const registerAppInstall = (name: string, global: boolean) =>
   invoke<string[]>("register_app_install", { name, global });
+export const getScoopBundleInfo = () => invoke<BundleInfo>("get_scoop_bundle_info");
+export const checkScoopPrereqs = (dir: string) => invoke<PrereqReport>("check_scoop_prereqs", { dir });
+export const extractScoopBundle = (dir: string, taskId: string) =>
+  invoke<void>("extract_scoop_bundle", { dir, taskId });
+export const finalizeScoopBootstrap = (dir: string, addToPath: boolean) =>
+  invoke<number>("finalize_scoop_bootstrap", { dir, addToPath });
+export const installScoopOnline = (dir: string, proxy: string | null, taskId: string) =>
+  invoke<void>("install_scoop_online", { dir, proxy, taskId });
 
 export const listProfiles = () => invoke<ProfileSummary[]>("list_profiles");
 export const getProfile = (name: string) => invoke<Profile>("get_profile", { name });

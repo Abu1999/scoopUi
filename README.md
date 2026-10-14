@@ -138,10 +138,6 @@ src-tauri/                 后端（Rust）
   src/commands/            Tauri 命令层（薄适配）
   src/domain/              领域逻辑（清单、索引、根目录、配置、镜像、配置集、快照、注册表、迁移等）
   tests/                   真实环境集成测试
-docs/
-  acceptance.md            手工验收清单（M1-M7）
-  superpowers/specs/       设计文档
-  superpowers/plans/       实现计划
 ```
 
 ## 常见问题

@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const messageError = vi.hoisted(() => vi.fn());
 const messageSuccess = vi.hoisted(() => vi.fn());
+const messageWarning = vi.hoisted(() => vi.fn());
+const messageInfo = vi.hoisted(() => vi.fn());
 const dialogOpen = vi.hoisted(() => vi.fn());
 const mocks = vi.hoisted(() => ({
   checkScoopPrereqs: vi.fn(),
@@ -32,8 +34,8 @@ vi.mock("naive-ui", async () => {
     useMessage: () => ({
       error: messageError,
       success: messageSuccess,
-      info: vi.fn(),
-      warning: vi.fn(),
+      info: messageInfo,
+      warning: messageWarning,
     }),
   };
 });
@@ -79,7 +81,11 @@ describe("SetupPage", () => {
     mocks.listBuckets.mockResolvedValue([]);
     mocks.listUpdates.mockResolvedValue([]);
     mocks.fetchIcon.mockResolvedValue(null);
-    mocks.finalizeScoopBootstrap.mockResolvedValue(1679);
+    mocks.finalizeScoopBootstrap.mockResolvedValue({
+      manifest_count: 1679,
+      path_updated: true,
+      warnings: [],
+    });
   });
 
   it("渲染环境卡与快照信息", async () => {
@@ -149,6 +155,40 @@ describe("SetupPage", () => {
     await findButton(wrapper, "选择").trigger("click");
     await flushPromises();
     expect(mocks.checkScoopPrereqs).toHaveBeenLastCalledWith("D:\\scoop-test");
+  });
+
+  it("所选目录非空时自动改用子目录", async () => {
+    dialogOpen.mockResolvedValue("D:\\");
+    const wrapper = mount(SetupPage);
+    await flushPromises();
+    mocks.checkScoopPrereqs
+      .mockResolvedValueOnce({ ...report, dir: "D:\\", dir_ok: false, dir_reason: "目标目录非空: D:\\" })
+      .mockResolvedValue({ ...report, dir: "D:\\scoop" });
+    await findButton(wrapper, "选择").trigger("click");
+    await flushPromises();
+    expect(messageInfo).toHaveBeenCalled();
+    expect(mocks.checkScoopPrereqs).toHaveBeenLastCalledWith("D:\\scoop");
+  });
+
+  it("finalize 警告时提示但仍完成接入", async () => {
+    mocks.extractScoopBundle.mockResolvedValue(undefined);
+    mocks.finalizeScoopBootstrap.mockResolvedValue({
+      manifest_count: 1679,
+      path_updated: false,
+      warnings: ["加入 PATH 失败: 拒绝访问"],
+    });
+    mocks.addRoot.mockResolvedValue({});
+    mocks.setActiveRoot.mockResolvedValue({});
+    const wrapper = mount(SetupPage);
+    await flushPromises();
+    await findButton(wrapper, "一键初始化").trigger("click");
+    await flushPromises();
+    const taskId = mocks.extractScoopBundle.mock.calls[0][1];
+    useLogsStore().end({ taskId, code: 0, success: true });
+    await flushPromises();
+    expect(messageWarning).toHaveBeenCalled();
+    expect(mocks.addRoot).toHaveBeenCalled();
+    expect(messageSuccess).toHaveBeenCalledWith("Scoop 已就绪");
   });
 
   it("在线安装入口调用命令", async () => {

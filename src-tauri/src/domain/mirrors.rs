@@ -55,7 +55,9 @@ pub fn apply_source(remote: &str, source: &str, proxy: &str) -> Result<String, A
 }
 
 pub fn run_git(dir: &str, args: &[&str]) -> Result<(), AppError> {
-    let output = std::process::Command::new("git")
+    let mut cmd = std::process::Command::new("git");
+    crate::domain::proc::hide_window(&mut cmd);
+    let output = cmd
         .args(["-C", dir])
         .args(args)
         .output()

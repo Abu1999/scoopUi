@@ -47,6 +47,8 @@ pub fn run() {
             commands::bootstrap::extract_scoop_bundle,
             commands::bootstrap::finalize_scoop_bootstrap,
             commands::bootstrap::install_scoop_online,
+            commands::bootstrap::get_boot_info,
+            commands::bootstrap::remove_bootstrapped_scoop,
             commands::profiles::list_profiles,
             commands::profiles::get_profile,
             commands::profiles::save_profile_from_current,

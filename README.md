@@ -114,6 +114,8 @@ cd src-tauri && cargo test --test live_flows -- --ignored --nocapture
 
 内置快照随 ScoopUI 版本刷新（`scripts/build-scoop-bundle.ps1` 重新打包），引导页会显示快照版本。
 
+**环境清理**：由 ScoopUI 初始化的 Scoop 环境会写入标记；卸载本应用时安装程序会询问是否连同删除该目录（含已安装应用）；也可随时在「设置 → 运行环境」下方点击「删除该环境」（同时清理 PATH 条目）。手动安装的 Scoop 不会被触碰。
+
 ## 数据目录
 
 | 路径 | 用途 |

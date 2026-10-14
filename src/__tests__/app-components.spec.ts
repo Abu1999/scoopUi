@@ -33,6 +33,8 @@ const otherCommands = vi.hoisted(() => ({
   updatePackage: vi.fn(),
   uninstallPackage: vi.fn(),
   setHold: vi.fn(),
+  getBootInfo: vi.fn().mockResolvedValue(null),
+  removeBootstrappedScoop: vi.fn(),
 }));
 
 vi.mock("../api/commands", () => ({
@@ -400,5 +402,40 @@ describe("SettingsPage", () => {
     wrapper.findComponent({ name: "RadioGroup" }).vm.$emit("update:value", "dark");
     await flushPromises();
     expect(setTheme).toHaveBeenCalledWith("dark");
+  });
+
+  it("显示由 ScoopUI 初始化的环境并可删除", async () => {
+    messageSuccess.mockClear();
+    otherCommands.getBootInfo.mockResolvedValue({
+      boot_root: "D:\\scoop-test",
+      active_root: "D:\\scoop-test",
+      active_is_boot: true,
+    });
+    otherCommands.removeBootstrappedScoop.mockResolvedValue("D:\\scoop-test");
+    otherCommands.getActiveRoot.mockResolvedValue(null);
+    otherCommands.detectRoots.mockResolvedValue([]);
+    listInstalledApps.mockResolvedValue([]);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const roots = useRootsStore();
+    roots.active = {
+      path: "D:\\scoop-test",
+      valid: true,
+      source: "env",
+      is_active: true,
+      app_count: 0,
+      bucket_count: 1,
+      has_portable_config: false,
+      global_dir: null,
+    };
+    getScoopConfig.mockResolvedValue({ file_path: "D:\\scoop-test\\config.json", portable: false, values: {} });
+    getMirrorInfo.mockResolvedValue(mirrorFixture);
+    const wrapper = mount(SettingsPage, { global: { plugins: [pinia] } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("D:\\scoop-test");
+    await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
+    await flushPromises();
+    expect(otherCommands.removeBootstrappedScoop).toHaveBeenCalled();
+    expect(messageSuccess).toHaveBeenCalledWith("已删除 Scoop 环境：D:\\scoop-test");
   });
 });

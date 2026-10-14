@@ -1,7 +1,9 @@
 import type {
   AppSettings,
+  BootInfo,
   BucketInfo,
   BundleInfo,
+  FinalizeResult,
   InstalledApp,
   MigrationEntry,
   MirrorInfo,
@@ -72,9 +74,11 @@ export const checkScoopPrereqs = (dir: string) => invoke<PrereqReport>("check_sc
 export const extractScoopBundle = (dir: string, taskId: string) =>
   invoke<void>("extract_scoop_bundle", { dir, taskId });
 export const finalizeScoopBootstrap = (dir: string, addToPath: boolean) =>
-  invoke<number>("finalize_scoop_bootstrap", { dir, addToPath });
+  invoke<FinalizeResult>("finalize_scoop_bootstrap", { dir, addToPath });
 export const installScoopOnline = (dir: string, proxy: string | null, taskId: string) =>
   invoke<void>("install_scoop_online", { dir, proxy, taskId });
+export const getBootInfo = () => invoke<BootInfo>("get_boot_info");
+export const removeBootstrappedScoop = () => invoke<string>("remove_bootstrapped_scoop");
 
 export const listProfiles = () => invoke<ProfileSummary[]>("list_profiles");
 export const getProfile = (name: string) => invoke<Profile>("get_profile", { name });

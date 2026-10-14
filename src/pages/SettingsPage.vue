@@ -16,6 +16,17 @@
       <n-button size="small" :disabled="!roots.active" @click="checkEnv">检查环境（scoop --version）</n-button>
     </div>
 
+    <n-alert v-if="boot?.boot_root" type="info" size="small" class="boot-alert">
+      <div>由 ScoopUI 初始化的 Scoop 环境：{{ boot.boot_root }}</div>
+      <div class="boot-hint">卸载本应用时安装程序会询问是否连同删除；也可在此立即删除（会一并删除其中已安装的应用）。</div>
+      <n-popconfirm :positive-button-props="{ type: 'error' }" @positive-click="removeEnv">
+        <template #trigger>
+          <n-button size="tiny" type="error">删除该环境</n-button>
+        </template>
+        确定删除 {{ boot.boot_root }} 及其中的所有已安装应用？不可恢复。
+      </n-popconfirm>
+    </n-alert>
+
     <h3>外观</h3>
     <div class="actions">
       <n-radio-group :value="appearance.theme" size="small" @update:value="onThemeChange">
@@ -45,14 +56,30 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { NAlert, NButton, NDescriptions, NDescriptionsItem, NRadioButton, NRadioGroup, useMessage } from "naive-ui";
-import { getMirrorInfo, getScoopConfig, runScoop } from "../api/commands";
-import type { MirrorInfo, ScoopConfig } from "../api/types";
+import {
+  NAlert,
+  NButton,
+  NDescriptions,
+  NDescriptionsItem,
+  NPopconfirm,
+  NRadioButton,
+  NRadioGroup,
+  useMessage,
+} from "naive-ui";
+import {
+  getBootInfo,
+  getMirrorInfo,
+  getScoopConfig,
+  removeBootstrappedScoop,
+  runScoop,
+} from "../api/commands";
+import type { BootInfo, MirrorInfo, ScoopConfig } from "../api/types";
 import AccelerationSection from "../components/settings/AccelerationSection.vue";
 import Aria2Section from "../components/settings/Aria2Section.vue";
 import MirrorSection from "../components/settings/MirrorSection.vue";
 import { useAppearanceStore } from "../stores/appearance";
 import type { ThemePreference } from "../stores/appearance";
+import { useAppsStore } from "../stores/apps";
 import { useLogsStore } from "../stores/logs";
 import { useRootsStore } from "../stores/roots";
 import { useUiStore } from "../stores/ui";
@@ -65,7 +92,27 @@ const message = useMessage();
 const config = ref<ScoopConfig | null>(null);
 const mirror = ref<MirrorInfo | null>(null);
 const mirrorError = ref<string | null>(null);
+const boot = ref<BootInfo | null>(null);
 let mirrorSeq = 0;
+
+async function loadBoot() {
+  try {
+    boot.value = await getBootInfo();
+  } catch {
+    boot.value = null;
+  }
+}
+
+async function removeEnv() {
+  try {
+    const removed = await removeBootstrappedScoop();
+    message.success(`已删除 Scoop 环境：${removed}`);
+    boot.value = null;
+    await Promise.all([roots.load(), useAppsStore().load()]);
+  } catch (e) {
+    message.error(String(e));
+  }
+}
 
 async function onThemeChange(value: ThemePreference) {
   try {
@@ -110,6 +157,7 @@ watch(
   () => {
     loadConfig();
     loadMirror();
+    loadBoot();
   },
   { immediate: true },
 );
@@ -157,6 +205,14 @@ h3:first-child {
 }
 .mirror-error {
   margin-top: 12px;
+}
+.boot-alert {
+  margin-top: 12px;
+}
+.boot-hint {
+  color: var(--text-dim);
+  font-size: 12px;
+  margin: 4px 0 6px;
 }
 .retry {
   margin-top: 6px;

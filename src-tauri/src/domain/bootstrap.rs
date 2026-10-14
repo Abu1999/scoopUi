@@ -259,8 +259,9 @@ pub struct PrereqReport {
 }
 
 fn command_available(program: &str) -> bool {
-    std::process::Command::new(program)
-        .arg("--version")
+    let mut cmd = std::process::Command::new(program);
+    crate::domain::proc::hide_window(&mut cmd);
+    cmd.arg("--version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status()
@@ -269,7 +270,9 @@ fn command_available(program: &str) -> bool {
 }
 
 fn powershell_major() -> Option<u32> {
-    let out = std::process::Command::new("powershell.exe")
+    let mut cmd = std::process::Command::new("powershell.exe");
+    crate::domain::proc::hide_window(&mut cmd);
+    let out = cmd
         .args(["-NoProfile", "-Command", "$PSVersionTable.PSVersion.Major"])
         .output()
         .ok()?;
@@ -382,8 +385,19 @@ pub fn is_elevated() -> bool {
     false
 }
 
+pub fn remove_from_path_var(current: &str, shims: &Path) -> String {
+    let target = crate::domain::root::normalized(shims);
+    current
+        .split(';')
+        .filter(|p| {
+            !(!p.trim().is_empty() && crate::domain::root::normalized(Path::new(p.trim())) == target)
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
 #[cfg(windows)]
-pub fn add_shims_to_user_path(shims: &Path) -> Result<(), AppError> {
+fn update_user_path(mutator: impl FnOnce(&str) -> Option<String>) -> Result<(), AppError> {
     use windows_sys::Win32::System::Registry::{
         RegCloseKey, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER,
         KEY_QUERY_VALUE, KEY_SET_VALUE, REG_EXPAND_SZ, REG_SZ, REG_VALUE_TYPE,
@@ -396,6 +410,7 @@ pub fn add_shims_to_user_path(shims: &Path) -> Result<(), AppError> {
         s.encode_utf16().chain(std::iter::once(0)).collect()
     }
 
+    let mut changed = false;
     unsafe {
         let sub = wide("Environment");
         let mut hkey: HKEY = std::ptr::null_mut();
@@ -448,49 +463,196 @@ pub fn add_shims_to_user_path(shims: &Path) -> Result<(), AppError> {
             RegCloseKey(hkey);
             return Err(AppError::Other("读取用户 PATH 失败".to_string()));
         }
-        let merged = crate::domain::bootstrap::merge_path_var(&current, shims);
-        if merged != current {
-            let write_type: REG_VALUE_TYPE = if value_type == REG_EXPAND_SZ || merged.contains('%') {
-                REG_EXPAND_SZ
-            } else {
-                REG_SZ
-            };
-            let mut data: Vec<u16> = merged.encode_utf16().collect();
-            data.push(0);
-            let bytes = std::slice::from_raw_parts(data.as_ptr().cast::<u8>(), data.len() * 2);
-            let status = RegSetValueExW(
-                hkey,
-                name.as_ptr(),
-                0,
-                write_type,
-                bytes.as_ptr(),
-                bytes.len() as u32,
-            );
-            if status != 0 {
-                RegCloseKey(hkey);
-                return Err(AppError::Other("写入用户 PATH 失败".to_string()));
+        if let Some(next) = mutator(&current) {
+            if next != current {
+                let write_type: REG_VALUE_TYPE = if value_type == REG_EXPAND_SZ || next.contains('%') {
+                    REG_EXPAND_SZ
+                } else {
+                    REG_SZ
+                };
+                let mut data: Vec<u16> = next.encode_utf16().collect();
+                data.push(0);
+                let bytes = std::slice::from_raw_parts(data.as_ptr().cast::<u8>(), data.len() * 2);
+                let status = RegSetValueExW(
+                    hkey,
+                    name.as_ptr(),
+                    0,
+                    write_type,
+                    bytes.as_ptr(),
+                    bytes.len() as u32,
+                );
+                if status != 0 {
+                    RegCloseKey(hkey);
+                    return Err(AppError::Other("写入用户 PATH 失败".to_string()));
+                }
+                changed = true;
             }
         }
         RegCloseKey(hkey);
     }
-    let environment = wide("Environment");
-    unsafe {
-        let mut result: usize = 0;
-        let _ = SendMessageTimeoutW(
-            HWND_BROADCAST,
-            WM_SETTINGCHANGE,
-            0,
-            environment.as_ptr() as isize,
-            SMTO_ABORTIFHUNG,
-            3000,
-            &mut result,
-        );
+    if changed {
+        let environment = wide("Environment");
+        unsafe {
+            let mut result: usize = 0;
+            let _ = SendMessageTimeoutW(
+                HWND_BROADCAST,
+                WM_SETTINGCHANGE,
+                0,
+                environment.as_ptr() as isize,
+                SMTO_ABORTIFHUNG,
+                3000,
+                &mut result,
+            );
+        }
     }
     Ok(())
 }
 
 #[cfg(not(windows))]
-pub fn add_shims_to_user_path(_shims: &Path) -> Result<(), AppError> {
+fn update_user_path(_mutator: impl FnOnce(&str) -> Option<String>) -> Result<(), AppError> {
+    Ok(())
+}
+
+pub fn add_shims_to_user_path(shims: &Path) -> Result<(), AppError> {
+    update_user_path(|current| {
+        let merged = merge_path_var(current, shims);
+        (merged != current).then_some(merged)
+    })
+}
+
+pub fn remove_shims_from_user_path(shims: &Path) -> Result<(), AppError> {
+    update_user_path(|current| {
+        let next = remove_from_path_var(current, shims);
+        (next != current).then_some(next)
+    })
+}
+
+#[cfg(windows)]
+fn wide_str(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(windows)]
+pub fn mark_bootstrapped(dir: &Path) -> Result<(), AppError> {
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegCreateKeyExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE,
+        REG_SZ,
+    };
+    let sub = wide_str("Software\\ScoopUI");
+    let name = wide_str("BootRoot");
+    unsafe {
+        let mut hkey: HKEY = std::ptr::null_mut();
+        let status = RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            sub.as_ptr(),
+            0,
+            std::ptr::null(),
+            0,
+            KEY_SET_VALUE,
+            std::ptr::null(),
+            &mut hkey,
+            std::ptr::null_mut(),
+        );
+        if status != 0 {
+            return Err(AppError::Other("无法创建注册表标记".to_string()));
+        }
+        let mut data: Vec<u16> = dir.display().to_string().encode_utf16().collect();
+        data.push(0);
+        let bytes = std::slice::from_raw_parts(data.as_ptr().cast::<u8>(), data.len() * 2);
+        let status = RegSetValueExW(hkey, name.as_ptr(), 0, REG_SZ, bytes.as_ptr(), bytes.len() as u32);
+        RegCloseKey(hkey);
+        if status != 0 {
+            return Err(AppError::Other("写入注册表标记失败".to_string()));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+pub fn read_boot_root() -> Option<String> {
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE,
+    };
+    let sub = wide_str("Software\\ScoopUI");
+    let name = wide_str("BootRoot");
+    unsafe {
+        let mut hkey: HKEY = std::ptr::null_mut();
+        if RegOpenKeyExW(HKEY_CURRENT_USER, sub.as_ptr(), 0, KEY_QUERY_VALUE, &mut hkey) != 0 {
+            return None;
+        }
+        let mut size: u32 = 0;
+        let query = RegQueryValueExW(
+            hkey,
+            name.as_ptr(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            &mut size,
+        );
+        if query != 0 || size == 0 {
+            RegCloseKey(hkey);
+            return None;
+        }
+        let mut buf = vec![0u8; size as usize];
+        let query2 = RegQueryValueExW(
+            hkey,
+            name.as_ptr(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            buf.as_mut_ptr(),
+            &mut size,
+        );
+        RegCloseKey(hkey);
+        if query2 != 0 {
+            return None;
+        }
+        let len = size as usize / 2;
+        let mut utf16 = Vec::with_capacity(len);
+        for chunk in buf.chunks_exact(2).take(len) {
+            utf16.push(u16::from_le_bytes([chunk[0], chunk[1]]));
+        }
+        while utf16.last() == Some(&0) {
+            utf16.pop();
+        }
+        let text = String::from_utf16_lossy(&utf16).trim().to_string();
+        if text.is_empty() {
+            None
+        } else {
+            Some(text)
+        }
+    }
+}
+
+#[cfg(windows)]
+pub fn clear_boot_root() -> Result<(), AppError> {
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegDeleteValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE,
+    };
+    let sub = wide_str("Software\\ScoopUI");
+    let name = wide_str("BootRoot");
+    unsafe {
+        let mut hkey: HKEY = std::ptr::null_mut();
+        if RegOpenKeyExW(HKEY_CURRENT_USER, sub.as_ptr(), 0, KEY_SET_VALUE, &mut hkey) != 0 {
+            return Ok(());
+        }
+        let _ = RegDeleteValueW(hkey, name.as_ptr());
+        RegCloseKey(hkey);
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn mark_bootstrapped(_dir: &Path) -> Result<(), AppError> {
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn read_boot_root() -> Option<String> {
+    None
+}
+
+#[cfg(not(windows))]
+pub fn clear_boot_root() -> Result<(), AppError> {
     Ok(())
 }
 
@@ -509,6 +671,16 @@ mod tests {
         assert!(dir_acceptable(&missing).is_err());
         std::fs::write(tmp.path().join("file.txt"), "x").unwrap();
         assert!(dir_acceptable(&tmp.path().join("file.txt")).is_err());
+    }
+
+    #[test]
+    fn path_removal_filters_target_only() {
+        assert_eq!(
+            remove_from_path_var(r"C:\a;C:\SCOOP\SHIMS;C:\b", Path::new(r"C:\scoop\shims")),
+            r"C:\a;C:\b"
+        );
+        assert_eq!(remove_from_path_var(r"C:\scoop\shims", Path::new(r"C:\scoop\shims")), "");
+        assert_eq!(remove_from_path_var(r"C:\a;C:\b", Path::new(r"C:\x")), r"C:\a;C:\b");
     }
 
     #[test]

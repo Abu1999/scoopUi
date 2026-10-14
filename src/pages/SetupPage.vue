@@ -147,15 +147,32 @@ onMounted(async () => {
 });
 
 async function pickDir() {
-  const picked = await open({ directory: true, title: "选择 Scoop 安装目录" });
+  const picked = await open({
+    directory: true,
+    title: "选择 Scoop 安装目录",
+    defaultPath: dir.value.trim() || report.value?.default_dir || undefined,
+  });
   if (typeof picked !== "string") return;
-  dir.value = picked;
+  let target = picked;
+  const check = await checkScoopPrereqs(target).catch(() => null);
+  if (check && !check.dir_ok && (check.dir_reason ?? "").includes("非空")) {
+    const base = picked.replace(/[\\/]+$/, "");
+    target = base === "" ? picked : `${base}\\scoop`;
+    message.info(`所选目录非空，已改用子目录 ${target}`);
+  }
+  dir.value = target;
   await refreshCheck();
 }
 
 async function finish(target: string) {
-  await addRoot(target);
-  await setActiveRoot(target);
+  try {
+    await addRoot(target);
+    await setActiveRoot(target);
+  } catch (e) {
+    throw new Error(
+      `环境已释放到 ${target}，但接入失败：${e}。可点「已经装过 Scoop？选择根目录」手动选择该目录`,
+    );
+  }
   await Promise.all([roots.load(), apps.load(), buckets.load()]);
   message.success("Scoop 已就绪");
   ui.setPage("installed");
@@ -188,7 +205,10 @@ async function doInit() {
       return;
     }
     try {
-      await finalizeScoopBootstrap(target, addToPath.value);
+      const result = await finalizeScoopBootstrap(target, addToPath.value);
+      if (result.warnings.length > 0) {
+        message.warning(result.warnings.join("；"));
+      }
     } catch (e) {
       message.error(String(e));
       return;

@@ -35,8 +35,10 @@ import {
   checkScoopPrereqs,
   extractScoopBundle,
   finalizeScoopBootstrap,
+  getBootInfo,
   getScoopBundleInfo,
   installScoopOnline,
+  removeBootstrappedScoop,
   renameProfile,
   restoreSnapshotBuckets,
   restoreSnapshotConfig,
@@ -287,5 +289,11 @@ describe("commands 包装", () => {
       proxy: null,
       taskId: "t-1",
     });
+
+    await getBootInfo();
+    expect(invokeMock).toHaveBeenLastCalledWith("get_boot_info", undefined);
+
+    await removeBootstrappedScoop();
+    expect(invokeMock).toHaveBeenLastCalledWith("remove_bootstrapped_scoop", undefined);
   });
 });

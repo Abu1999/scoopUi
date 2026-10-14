@@ -8,6 +8,7 @@ pub mod manifest;
 pub mod migrate;
 pub mod mirrors;
 pub mod postinstall;
+pub mod proc;
 pub mod profiles;
 pub mod registry;
 pub mod root;

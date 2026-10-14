@@ -122,6 +122,18 @@ export interface PrereqReport {
   existing_root: string | null;
 }
 
+export interface FinalizeResult {
+  manifest_count: number;
+  path_updated: boolean;
+  warnings: string[];
+}
+
+export interface BootInfo {
+  boot_root: string | null;
+  active_root: string | null;
+  active_is_boot: boolean;
+}
+
 export interface BucketRef {
   name: string;
   source: string | null;

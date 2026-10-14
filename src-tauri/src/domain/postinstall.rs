@@ -36,7 +36,9 @@ pub fn register(dir: &Path, app_name: &str) -> Result<Vec<String>, AppError> {
     }
     let mut done: Vec<String> = Vec::new();
     for reg in find_install_regs(dir) {
-        let ok = Command::new("reg.exe")
+        let mut cmd = Command::new("reg.exe");
+        crate::domain::proc::hide_window(&mut cmd);
+        let ok = cmd
             .args(["import"])
             .arg(&reg)
             .status()
@@ -49,7 +51,9 @@ pub fn register(dir: &Path, app_name: &str) -> Result<Vec<String>, AppError> {
     if app_name.eq_ignore_ascii_case("git") {
         let git = dir.join("cmd").join("git.exe");
         if git.is_file() {
-            let ok = Command::new(&git)
+            let mut cmd = Command::new(&git);
+            crate::domain::proc::hide_window(&mut cmd);
+            let ok = cmd
                 .args(["config", "--global", "credential.helper", "manager"])
                 .status()
                 .map(|s| s.success())

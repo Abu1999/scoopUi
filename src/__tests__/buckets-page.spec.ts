@@ -7,8 +7,7 @@ const messageError = vi.hoisted(() => vi.fn());
 const mocks = vi.hoisted(() => ({
   listBuckets: vi.fn(),
   listKnownBuckets: vi.fn().mockResolvedValue(["extras", "java", "games"]),
-  detectRoots: vi.fn().mockResolvedValue([]),
-  getActiveRoot: vi.fn().mockResolvedValue(null),
+  getScoopEnv: vi.fn().mockResolvedValue(null),
   bucketAdd: vi.fn().mockResolvedValue(undefined),
   bucketRemove: vi.fn().mockResolvedValue(undefined),
   updatePackage: vi.fn().mockResolvedValue(undefined),

@@ -112,7 +112,7 @@ async function ensureFilled() {
 }
 
 watch(
-  () => roots.active?.path,
+  () => roots.env?.path,
   () => {
     pkgs.search(pkgs.query);
   },

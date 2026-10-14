@@ -13,10 +13,8 @@ const mocks = vi.hoisted(() => ({
   extractScoopBundle: vi.fn(),
   finalizeScoopBootstrap: vi.fn(),
   installScoopOnline: vi.fn(),
-  addRoot: vi.fn(),
-  setActiveRoot: vi.fn(),
-  detectRoots: vi.fn(),
-  getActiveRoot: vi.fn(),
+  adoptScoopDir: vi.fn(),
+  getScoopEnv: vi.fn(),
   listInstalledApps: vi.fn(),
   listBuckets: vi.fn(),
   listUpdates: vi.fn(),
@@ -63,6 +61,14 @@ const bundle = {
   main_commit: "6686d10590e5de4768ca5e2dcd9cfa89020779bb",
 };
 
+const envFixture = {
+  path: "C:\\Users\\Administrator\\scoop",
+  valid: true,
+  app_count: 1679,
+  bucket_count: 1,
+  has_portable_config: false,
+};
+
 function findButton(wrapper: ReturnType<typeof mount>, text: string) {
   const btn = wrapper.findAll("button").find((b) => b.text().includes(text));
   expect(btn).toBeTruthy();
@@ -75,8 +81,8 @@ describe("SetupPage", () => {
     vi.clearAllMocks();
     mocks.checkScoopPrereqs.mockResolvedValue(report);
     mocks.getScoopBundleInfo.mockResolvedValue(bundle);
-    mocks.detectRoots.mockResolvedValue([]);
-    mocks.getActiveRoot.mockResolvedValue(null);
+    mocks.adoptScoopDir.mockResolvedValue(envFixture);
+    mocks.getScoopEnv.mockResolvedValue(envFixture);
     mocks.listInstalledApps.mockResolvedValue([]);
     mocks.listBuckets.mockResolvedValue([]);
     mocks.listUpdates.mockResolvedValue([]);
@@ -99,8 +105,6 @@ describe("SetupPage", () => {
 
   it("一键初始化成功链路", async () => {
     mocks.extractScoopBundle.mockResolvedValue(undefined);
-    mocks.addRoot.mockResolvedValue({});
-    mocks.setActiveRoot.mockResolvedValue({});
     const wrapper = mount(SetupPage);
     await flushPromises();
     await findButton(wrapper, "一键初始化").trigger("click");
@@ -113,16 +117,13 @@ describe("SetupPage", () => {
     useLogsStore().end({ taskId, code: 0, success: true });
     await flushPromises();
     expect(mocks.finalizeScoopBootstrap).toHaveBeenCalledWith("C:\\Users\\Administrator\\scoop", true);
-    expect(mocks.addRoot).toHaveBeenCalledWith("C:\\Users\\Administrator\\scoop");
-    expect(mocks.setActiveRoot).toHaveBeenCalledWith("C:\\Users\\Administrator\\scoop");
+    expect(mocks.adoptScoopDir).toHaveBeenCalledWith("C:\\Users\\Administrator\\scoop");
     expect(messageSuccess).toHaveBeenCalledWith("Scoop 已就绪");
     expect(useUiStore().activePage).toBe("installed");
   });
 
   it("快速连点初始化只执行一次", async () => {
     mocks.extractScoopBundle.mockResolvedValue(undefined);
-    mocks.addRoot.mockResolvedValue({});
-    mocks.setActiveRoot.mockResolvedValue({});
     const wrapper = mount(SetupPage);
     await flushPromises();
     const btn = findButton(wrapper, "一键初始化");
@@ -145,7 +146,7 @@ describe("SetupPage", () => {
     await flushPromises();
     expect(messageError).toHaveBeenCalled();
     expect(mocks.finalizeScoopBootstrap).not.toHaveBeenCalled();
-    expect(mocks.addRoot).not.toHaveBeenCalled();
+    expect(mocks.adoptScoopDir).not.toHaveBeenCalled();
   });
 
   it("选择目录更新目标路径并重新检查", async () => {
@@ -177,8 +178,6 @@ describe("SetupPage", () => {
       path_updated: false,
       warnings: ["加入 PATH 失败: 拒绝访问"],
     });
-    mocks.addRoot.mockResolvedValue({});
-    mocks.setActiveRoot.mockResolvedValue({});
     const wrapper = mount(SetupPage);
     await flushPromises();
     await findButton(wrapper, "一键初始化").trigger("click");
@@ -187,7 +186,7 @@ describe("SetupPage", () => {
     useLogsStore().end({ taskId, code: 0, success: true });
     await flushPromises();
     expect(messageWarning).toHaveBeenCalled();
-    expect(mocks.addRoot).toHaveBeenCalled();
+    expect(mocks.adoptScoopDir).toHaveBeenCalled();
     expect(messageSuccess).toHaveBeenCalledWith("Scoop 已就绪");
   });
 

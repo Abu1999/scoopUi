@@ -1,12 +1,9 @@
-export interface RootInfo {
+export interface ScoopEnvInfo {
   path: string;
   valid: boolean;
-  source: string;
-  is_active: boolean;
   app_count: number;
   bucket_count: number;
   has_portable_config: boolean;
-  global_dir: string | null;
 }
 
 export interface InstalledApp {
@@ -126,12 +123,6 @@ export interface FinalizeResult {
   manifest_count: number;
   path_updated: boolean;
   warnings: string[];
-}
-
-export interface BootInfo {
-  boot_root: string | null;
-  active_root: string | null;
-  active_is_boot: boolean;
 }
 
 export interface BucketRef {

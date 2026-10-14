@@ -2,10 +2,10 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  detectRoots: vi.fn(),
-  getActiveRoot: vi.fn(),
-  setActiveRoot: vi.fn(),
-  addRoot: vi.fn(),
+  getScoopEnv: vi.fn(),
+  adoptScoopDir: vi.fn(),
+  moveScoopDir: vi.fn(),
+  removeScoopEnv: vi.fn(),
   listInstalledApps: vi.fn(),
   listBuckets: vi.fn(),
   listUpdates: vi.fn(),
@@ -16,15 +16,12 @@ import { useAppsStore } from "../stores/apps";
 import { useBucketsStore } from "../stores/buckets";
 import { useRootsStore } from "../stores/roots";
 
-const rootFixture = {
+const envFixture = {
   path: "C:\\scoop",
   valid: true,
-  source: "default",
-  is_active: true,
   app_count: 9,
   bucket_count: 4,
   has_portable_config: false,
-  global_dir: null,
 };
 
 const appFixture = {
@@ -50,51 +47,48 @@ describe("stores", () => {
     vi.clearAllMocks();
   });
 
-  it("roots.load 同时拉取 active 与候选", async () => {
-    mocks.getActiveRoot.mockResolvedValue(rootFixture);
-    mocks.detectRoots.mockResolvedValue([rootFixture]);
+  it("roots.load 拉取单环境", async () => {
+    mocks.getScoopEnv.mockResolvedValue(envFixture);
     const store = useRootsStore();
     await store.load();
-    expect(store.active?.path).toBe("C:\\scoop");
-    expect(store.roots).toHaveLength(1);
+    expect(mocks.getScoopEnv).toHaveBeenCalled();
+    expect(store.env?.path).toBe("C:\\scoop");
     expect(store.loading).toBe(false);
+    expect(store.error).toBe("");
   });
 
   it("roots.load 失败时 error 为可读字符串", async () => {
-    mocks.getActiveRoot.mockRejectedValue("未找到可用的 scoop 根目录");
-    mocks.detectRoots.mockResolvedValue([]);
+    mocks.getScoopEnv.mockRejectedValue("未找到 scoop 安装目录");
     const store = useRootsStore();
     await store.load();
-    expect(store.error).toBe("未找到可用的 scoop 根目录");
-    expect(store.active).toBeNull();
+    expect(store.error).toBe("未找到 scoop 安装目录");
+    expect(store.env).toBeNull();
   });
 
-  it("roots.setActive 调用命令并刷新", async () => {
-    mocks.setActiveRoot.mockResolvedValue(rootFixture);
-    mocks.getActiveRoot.mockResolvedValue(rootFixture);
-    mocks.detectRoots.mockResolvedValue([rootFixture]);
+  it("roots.adopt 调用命令并写入环境", async () => {
+    mocks.adoptScoopDir.mockResolvedValue({ ...envFixture, path: "D:\\scoop" });
     const store = useRootsStore();
-    await store.setActive("C:\\scoop");
-    expect(mocks.setActiveRoot).toHaveBeenCalledWith("C:\\scoop");
-    expect(store.active?.path).toBe("C:\\scoop");
+    await store.adopt("D:\\scoop");
+    expect(mocks.adoptScoopDir).toHaveBeenCalledWith("D:\\scoop");
+    expect(store.env?.path).toBe("D:\\scoop");
   });
 
-  it("roots.setActive 会刷新根目录", async () => {
-    mocks.getActiveRoot.mockResolvedValue(rootFixture);
-    mocks.detectRoots.mockResolvedValue([rootFixture]);
-    mocks.setActiveRoot.mockResolvedValue(rootFixture);
+  it("roots.move 调用命令并更新环境", async () => {
+    mocks.moveScoopDir.mockResolvedValue({ ...envFixture, path: "E:\\scoop" });
     const store = useRootsStore();
-    await store.load();
-    await store.setActive("C:\\scoop");
-    expect(mocks.detectRoots).toHaveBeenCalled();
-    expect(mocks.getActiveRoot).toHaveBeenCalledTimes(2);
+    store.env = envFixture;
+    await store.move("E:\\scoop");
+    expect(mocks.moveScoopDir).toHaveBeenCalledWith("E:\\scoop");
+    expect(store.env?.path).toBe("E:\\scoop");
   });
 
-  it("roots.add 失败时写入 error", async () => {
-    mocks.addRoot.mockRejectedValue("根目录无效（缺少 apps/buckets/shims 目录）: X");
+  it("roots.remove 清空环境", async () => {
+    mocks.removeScoopEnv.mockResolvedValue("C:\\scoop");
     const store = useRootsStore();
-    await store.add("X");
-    expect(store.error).toContain("根目录无效（缺少 apps/buckets/shims 目录）: X");
+    store.env = envFixture;
+    await store.remove();
+    expect(mocks.removeScoopEnv).toHaveBeenCalled();
+    expect(store.env).toBeNull();
   });
 
   it("apps.load 拉取列表并支持选中", async () => {

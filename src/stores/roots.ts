@@ -1,44 +1,34 @@
 import { defineStore } from "pinia";
-import { addRoot, detectRoots, getActiveRoot, setActiveRoot } from "../api/commands";
-import type { RootInfo } from "../api/types";
+import { adoptScoopDir, getScoopEnv, moveScoopDir, removeScoopEnv } from "../api/commands";
+import type { ScoopEnvInfo } from "../api/types";
 
 export const useRootsStore = defineStore("roots", {
   state: () => ({
-    roots: [] as RootInfo[],
-    active: null as RootInfo | null,
+    env: null as ScoopEnvInfo | null,
     loading: false,
-    error: null as string | null,
+    error: "",
   }),
   actions: {
     async load() {
       this.loading = true;
-      this.error = null;
       try {
-        this.active = await getActiveRoot();
-        this.roots = await detectRoots();
+        this.env = await getScoopEnv();
+        this.error = "";
       } catch (e) {
         this.error = String(e);
       } finally {
         this.loading = false;
       }
     },
-    async setActive(path: string) {
-      this.error = null;
-      try {
-        this.active = await setActiveRoot(path);
-        await this.load();
-      } catch (e) {
-        this.error = String(e);
-      }
+    async adopt(path: string) {
+      this.env = await adoptScoopDir(path);
     },
-    async add(path: string) {
-      this.error = null;
-      try {
-        await addRoot(path);
-        await this.load();
-      } catch (e) {
-        this.error = String(e);
-      }
+    async move(path: string) {
+      this.env = await moveScoopDir(path);
+    },
+    async remove() {
+      await removeScoopEnv();
+      this.env = null;
     },
   },
 });

@@ -17,10 +17,7 @@ vi.mock("naive-ui", async () => {
 });
 
 const mocks = vi.hoisted(() => ({
-  detectRoots: vi.fn().mockResolvedValue([]),
-  getActiveRoot: vi.fn().mockResolvedValue(null),
-  setActiveRoot: vi.fn(),
-  addRoot: vi.fn(),
+  getScoopEnv: vi.fn().mockResolvedValue(null),
   listInstalledApps: vi.fn().mockResolvedValue([]),
   listBuckets: vi.fn().mockResolvedValue([]),
   getScoopConfig: vi.fn().mockResolvedValue(null),

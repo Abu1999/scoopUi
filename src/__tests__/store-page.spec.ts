@@ -4,10 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const messageError = vi.hoisted(() => vi.fn());
 const mocks = vi.hoisted(() => ({
-  detectRoots: vi.fn().mockResolvedValue([]),
-  getActiveRoot: vi.fn().mockResolvedValue(null),
-  setActiveRoot: vi.fn(),
-  addRoot: vi.fn(),
+  getScoopEnv: vi.fn().mockResolvedValue(null),
   listInstalledApps: vi.fn().mockResolvedValue([]),
   listBuckets: vi.fn().mockResolvedValue([]),
   getScoopConfig: vi.fn(),
@@ -141,15 +138,12 @@ describe("StorePage", () => {
     await flushPromises();
     expect(mocks.searchPackages).toHaveBeenCalledTimes(1);
     const roots = useRootsStore();
-    roots.active = {
+    roots.env = {
       path: "D:\\scoop",
       valid: true,
-      source: "manual",
-      is_active: true,
       app_count: 0,
       bucket_count: 0,
       has_portable_config: false,
-      global_dir: null,
     };
     await flushPromises();
     expect(mocks.searchPackages).toHaveBeenCalledTimes(2);
@@ -226,7 +220,7 @@ describe("StorePage", () => {
     await flushPromises();
     expect(mocks.registerAppInstall).toHaveBeenCalledWith("git", false);
     expect(mocks.listInstalledApps).toHaveBeenCalled();
-    expect(mocks.detectRoots).toHaveBeenCalled();
+    expect(mocks.getScoopEnv).toHaveBeenCalled();
   });
 
   it("全局安装默认勾选", async () => {

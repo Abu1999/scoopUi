@@ -5,15 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => {
   const calls: string[] = [];
   const failInit = { value: false };
-  const rootActive = { value: null as unknown };
+  const rootEnv = { value: null as unknown };
   const commands = {
-    getActiveRoot: vi.fn(async () => {
-      calls.push("getActiveRoot");
+    getScoopEnv: vi.fn(async () => {
+      calls.push("getScoopEnv");
       return null;
-    }),
-    detectRoots: vi.fn(async () => {
-      calls.push("detectRoots");
-      return [];
     }),
     listInstalledApps: vi.fn(async () => {
       calls.push("listInstalledApps");
@@ -31,7 +27,7 @@ const h = vi.hoisted(() => {
     calls.push("logs.init");
     if (failInit.value) throw new Error("listen 失败");
   });
-  return { calls, commands, init, failInit, rootActive };
+  return { calls, commands, init, failInit, rootEnv };
 });
 
 vi.mock("../api/commands", () => h.commands);
@@ -40,11 +36,10 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openPath: vi.fn(), openUrl: vi.fn(
 vi.mock("../stores/logs", () => ({ useLogsStore: () => ({ init: h.init }) }));
 vi.mock("../stores/roots", () => ({
   useRootsStore: () => ({
-    active: h.rootActive.value,
+    env: h.rootEnv.value,
     loading: false,
     load: async () => {
-      await h.commands.getActiveRoot();
-      await h.commands.detectRoots();
+      await h.commands.getScoopEnv();
     },
   }),
 }));
@@ -86,20 +81,17 @@ describe("AppShell 启动时序", () => {
   beforeEach(() => {
     h.calls.length = 0;
     h.failInit.value = false;
-    h.rootActive.value = {
+    h.rootEnv.value = {
       path: "C:\\scoop",
       valid: true,
-      source: "default",
-      is_active: true,
       app_count: 0,
       bucket_count: 0,
       has_portable_config: false,
-      global_dir: null,
     };
   });
 
-  it("无根目录时显示初始化引导页", async () => {
-    h.rootActive.value = null;
+  it("无环境时显示初始化引导页", async () => {
+    h.rootEnv.value = null;
     const pinia = createPinia();
     setActivePinia(pinia);
     const wrapper = mount(AppShell, { global: { plugins: [pinia], stubs } });
@@ -116,8 +108,7 @@ describe("AppShell 启动时序", () => {
     await flushPromises();
     expect(h.calls).toEqual([
       "logs.init",
-      "getActiveRoot",
-      "detectRoots",
+      "getScoopEnv",
       "listInstalledApps",
       "listBuckets",
     ]);
@@ -132,8 +123,7 @@ describe("AppShell 启动时序", () => {
     await flushPromises();
     expect(h.calls).toEqual([
       "logs.init",
-      "getActiveRoot",
-      "detectRoots",
+      "getScoopEnv",
       "listInstalledApps",
       "listBuckets",
     ]);

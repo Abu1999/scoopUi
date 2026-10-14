@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const messageError = vi.hoisted(() => vi.fn());
 const messageSuccess = vi.hoisted(() => vi.fn());
+const dialogOpen = vi.hoisted(() => vi.fn());
 const mocks = vi.hoisted(() => ({
   setBucketSource: vi.fn().mockResolvedValue("https://github.com/ScoopInstaller/Main"),
   setScoopSource: vi.fn().mockResolvedValue("https://github.com/ScoopInstaller/Scoop"),
@@ -12,8 +13,19 @@ const mocks = vi.hoisted(() => ({
   setAria2: vi.fn().mockResolvedValue(undefined),
   testUrlProxy: vi.fn(),
   installPackage: vi.fn().mockResolvedValue(undefined),
+  getScoopEnv: vi.fn(),
+  adoptScoopDir: vi.fn(),
+  moveScoopDir: vi.fn(),
+  removeScoopEnv: vi.fn(),
+  getScoopConfig: vi.fn(),
+  getMirrorInfo: vi.fn(),
+  runScoop: vi.fn(),
+  listInstalledApps: vi.fn().mockResolvedValue([]),
+  listBuckets: vi.fn().mockResolvedValue([]),
+  listUpdates: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../api/commands", () => mocks);
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: dialogOpen }));
 
 vi.mock("naive-ui", async () => {
   const actual = await vi.importActual<typeof import("naive-ui")>("naive-ui");
@@ -30,11 +42,14 @@ vi.mock("naive-ui", async () => {
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(() => Promise.resolve(() => {})) }));
 
+import { NPopconfirm } from "naive-ui";
 import AccelerationSection from "../components/settings/AccelerationSection.vue";
 import Aria2Section from "../components/settings/Aria2Section.vue";
 import MirrorSection from "../components/settings/MirrorSection.vue";
+import SettingsPage from "../pages/SettingsPage.vue";
 import { useLogsStore } from "../stores/logs";
-import type { MirrorInfo } from "../api/types";
+import { useRootsStore } from "../stores/roots";
+import type { MirrorInfo, ScoopEnvInfo } from "../api/types";
 
 function info(extra: Partial<MirrorInfo> = {}): MirrorInfo {
   return {
@@ -211,5 +226,67 @@ describe("设置区块", () => {
     await flushPromises();
     expect(messageError).toHaveBeenCalled();
     expect(wrapper.emitted("changed")).toBeFalsy();
+  });
+});
+
+const envFixture: ScoopEnvInfo = {
+  path: "C:\\scoop",
+  valid: true,
+  app_count: 9,
+  bucket_count: 4,
+  has_portable_config: false,
+};
+
+describe("运行环境区块", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+  });
+
+  it("展示安装目录与应用/软件源数量", async () => {
+    const roots = useRootsStore();
+    roots.env = envFixture;
+    mocks.getScoopConfig.mockResolvedValue(null);
+    mocks.getMirrorInfo.mockResolvedValue(null);
+    const wrapper = mount(SettingsPage);
+    await flushPromises();
+    expect(wrapper.text()).toContain("C:\\scoop");
+    expect(wrapper.text()).toContain("9 / 4");
+    expect(wrapper.text()).not.toContain("全局目录");
+  });
+
+  it("修改位置迁移成功后刷新应用与软件源", async () => {
+    const roots = useRootsStore();
+    roots.env = envFixture;
+    mocks.getScoopConfig.mockResolvedValue(null);
+    mocks.getMirrorInfo.mockResolvedValue(null);
+    mocks.moveScoopDir.mockResolvedValue({ ...envFixture, path: "D:\\scoop" });
+    dialogOpen.mockResolvedValue("D:\\scoop");
+    const wrapper = mount(SettingsPage);
+    await flushPromises();
+    const button = wrapper.findAll("button").find((b) => b.text().includes("修改位置"));
+    await button!.trigger("click");
+    await flushPromises();
+    expect(dialogOpen).toHaveBeenCalled();
+    expect(mocks.moveScoopDir).toHaveBeenCalledWith("D:\\scoop");
+    expect(mocks.listInstalledApps).toHaveBeenCalled();
+    expect(mocks.listBuckets).toHaveBeenCalled();
+    expect(roots.env?.path).toBe("D:\\scoop");
+    expect(messageSuccess).toHaveBeenCalled();
+  });
+
+  it("删除该环境后清空 store", async () => {
+    const roots = useRootsStore();
+    roots.env = envFixture;
+    mocks.getScoopConfig.mockResolvedValue(null);
+    mocks.getMirrorInfo.mockResolvedValue(null);
+    mocks.removeScoopEnv.mockResolvedValue("C:\\scoop");
+    const wrapper = mount(SettingsPage);
+    await flushPromises();
+    await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
+    await flushPromises();
+    expect(mocks.removeScoopEnv).toHaveBeenCalled();
+    expect(roots.env).toBeNull();
+    expect(messageSuccess).toHaveBeenCalled();
   });
 });

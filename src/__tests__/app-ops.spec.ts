@@ -11,8 +11,7 @@ const mocks = vi.hoisted(() => ({
   uninstallPackage: vi.fn(),
   setHold: vi.fn(),
   fetchIcon: vi.fn().mockResolvedValue(null),
-  detectRoots: vi.fn().mockResolvedValue([]),
-  getActiveRoot: vi.fn().mockResolvedValue(null),
+  getScoopEnv: vi.fn().mockResolvedValue(null),
   listUpdates: vi.fn().mockResolvedValue([]),
   getMirrorInfo: vi.fn().mockResolvedValue(null),
 }));
@@ -86,7 +85,7 @@ describe("AppDetail 操作", () => {
     await flushPromises();
     expect(mocks.listInstalledApps).toHaveBeenCalledTimes(1);
     expect(useAppsStore().apps).toEqual([git]);
-    expect(mocks.detectRoots).toHaveBeenCalled();
+    expect(mocks.getScoopEnv).toHaveBeenCalled();
   });
 
   it("卸载失败提示错误且不刷新", async () => {

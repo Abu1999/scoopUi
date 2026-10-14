@@ -4,7 +4,7 @@
     <div class="main">
       <TopBar />
       <div class="content">
-        <SetupPage v-if="booted && !roots.active" />
+        <SetupPage v-if="booted && !roots.env" />
         <InstalledPage v-else-if="ui.activePage === 'installed'" />
         <StorePage v-else-if="ui.activePage === 'store'" />
         <BucketsPage v-else-if="ui.activePage === 'buckets'" />

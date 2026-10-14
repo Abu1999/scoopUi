@@ -10,7 +10,7 @@ import SettingsPage from "../pages/SettingsPage.vue";
 import { useAppsStore } from "../stores/apps";
 import { useLogsStore } from "../stores/logs";
 import { useRootsStore } from "../stores/roots";
-import type { InstalledApp, MirrorInfo, RootInfo } from "../api/types";
+import type { InstalledApp, MirrorInfo, ScoopEnvInfo } from "../api/types";
 
 const messageError = vi.hoisted(() => vi.fn());
 const messageSuccess = vi.hoisted(() => vi.fn());
@@ -24,17 +24,15 @@ const runScoop = vi.hoisted(() => vi.fn());
 const getAppSettings = vi.hoisted(() => vi.fn().mockResolvedValue({ theme: "system" }));
 const setTheme = vi.hoisted(() => vi.fn());
 const otherCommands = vi.hoisted(() => ({
-  detectRoots: vi.fn(),
-  getActiveRoot: vi.fn(),
-  setActiveRoot: vi.fn(),
-  addRoot: vi.fn(),
+  getScoopEnv: vi.fn(),
+  adoptScoopDir: vi.fn(),
+  moveScoopDir: vi.fn(),
+  removeScoopEnv: vi.fn(),
   listBuckets: vi.fn(),
   cancelTask: vi.fn(),
   updatePackage: vi.fn(),
   uninstallPackage: vi.fn(),
   setHold: vi.fn(),
-  getBootInfo: vi.fn().mockResolvedValue(null),
-  removeBootstrappedScoop: vi.fn(),
 }));
 
 vi.mock("../api/commands", () => ({
@@ -276,22 +274,20 @@ describe("InstalledPage", () => {
   });
 });
 
+const envFixture: ScoopEnvInfo = {
+  path: "C:\\scoop",
+  valid: true,
+  app_count: 1,
+  bucket_count: 1,
+  has_portable_config: false,
+};
+
 describe("SettingsPage", () => {
-  it("切换根目录后重新加载配置", async () => {
+  it("切换安装目录后重新加载配置", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const roots = useRootsStore();
-    const rootA: RootInfo = {
-      path: "C:\\scoop",
-      valid: true,
-      source: "env",
-      is_active: true,
-      app_count: 1,
-      bucket_count: 1,
-      has_portable_config: false,
-      global_dir: null,
-    };
-    roots.active = rootA;
+    roots.env = envFixture;
     getScoopConfig.mockResolvedValueOnce({
       file_path: "C:\\scoop\\config.json",
       portable: false,
@@ -301,7 +297,7 @@ describe("SettingsPage", () => {
     await flushPromises();
     expect(getScoopConfig).toHaveBeenCalledTimes(1);
     expect(wrapper.text()).toContain("C:\\scoop\\config.json");
-    roots.active = { ...rootA, path: "D:\\scoop", is_active: true };
+    roots.env = { ...envFixture, path: "D:\\scoop" };
     getScoopConfig.mockResolvedValueOnce({
       file_path: "D:\\scoop\\config.json",
       portable: true,
@@ -316,16 +312,7 @@ describe("SettingsPage", () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const roots = useRootsStore();
-    roots.active = {
-      path: "C:\\scoop",
-      valid: true,
-      source: "env",
-      is_active: true,
-      app_count: 1,
-      bucket_count: 1,
-      has_portable_config: false,
-      global_dir: null,
-    };
+    roots.env = envFixture;
     getScoopConfig.mockResolvedValue({
       file_path: "C:\\scoop\\config.json",
       portable: false,
@@ -348,17 +335,7 @@ describe("SettingsPage", () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const roots = useRootsStore();
-    const base = {
-      path: "C:\\scoop",
-      valid: true,
-      source: "env",
-      is_active: true,
-      app_count: 1,
-      bucket_count: 1,
-      has_portable_config: false,
-      global_dir: null,
-    };
-    roots.active = base;
+    roots.env = envFixture;
     getScoopConfig.mockResolvedValue({
       file_path: "C:\\scoop\\config.json",
       portable: false,
@@ -370,7 +347,7 @@ describe("SettingsPage", () => {
       .mockImplementationOnce(() => new Promise((_, rej) => (rejectFirst = rej)))
       .mockImplementationOnce(() => new Promise((res) => (resolveSecond = res)));
     const wrapper = mount(SettingsPage, { global: { plugins: [pinia] } });
-    roots.active = { ...base, path: "D:\\scoop" };
+    roots.env = { ...envFixture, path: "D:\\scoop" };
     await flushPromises();
     resolveSecond(mirrorFixture);
     await flushPromises();
@@ -385,16 +362,7 @@ describe("SettingsPage", () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const roots = useRootsStore();
-    roots.active = {
-      path: "C:\\scoop",
-      valid: true,
-      source: "env",
-      is_active: true,
-      app_count: 1,
-      bucket_count: 1,
-      has_portable_config: false,
-      global_dir: null,
-    };
+    roots.env = envFixture;
     getScoopConfig.mockResolvedValue({ file_path: "C:\\scoop\\config.json", portable: false, values: {} });
     getMirrorInfo.mockResolvedValue(mirrorFixture);
     const wrapper = mount(SettingsPage, { global: { plugins: [pinia] } });
@@ -404,29 +372,19 @@ describe("SettingsPage", () => {
     expect(setTheme).toHaveBeenCalledWith("dark");
   });
 
-  it("显示由 ScoopUI 初始化的环境并可删除", async () => {
+  it("显示当前环境并可删除", async () => {
     messageSuccess.mockClear();
-    otherCommands.getBootInfo.mockResolvedValue({
-      boot_root: "D:\\scoop-test",
-      active_root: "D:\\scoop-test",
-      active_is_boot: true,
-    });
-    otherCommands.removeBootstrappedScoop.mockResolvedValue("D:\\scoop-test");
-    otherCommands.getActiveRoot.mockResolvedValue(null);
-    otherCommands.detectRoots.mockResolvedValue([]);
+    otherCommands.removeScoopEnv.mockResolvedValue("D:\\scoop-test");
     listInstalledApps.mockResolvedValue([]);
     const pinia = createPinia();
     setActivePinia(pinia);
     const roots = useRootsStore();
-    roots.active = {
+    roots.env = {
       path: "D:\\scoop-test",
       valid: true,
-      source: "env",
-      is_active: true,
       app_count: 0,
       bucket_count: 1,
       has_portable_config: false,
-      global_dir: null,
     };
     getScoopConfig.mockResolvedValue({ file_path: "D:\\scoop-test\\config.json", portable: false, values: {} });
     getMirrorInfo.mockResolvedValue(mirrorFixture);
@@ -435,7 +393,8 @@ describe("SettingsPage", () => {
     expect(wrapper.text()).toContain("D:\\scoop-test");
     await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
     await flushPromises();
-    expect(otherCommands.removeBootstrappedScoop).toHaveBeenCalled();
-    expect(messageSuccess).toHaveBeenCalledWith("已删除 Scoop 环境：D:\\scoop-test");
+    expect(otherCommands.removeScoopEnv).toHaveBeenCalled();
+    expect(roots.env).toBeNull();
+    expect(messageSuccess).toHaveBeenCalledWith("已删除 Scoop 环境");
   });
 });

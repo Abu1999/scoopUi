@@ -4,7 +4,7 @@ const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
 import {
-  addRoot,
+  adoptScoopDir,
   applyProfileSettings,
   bucketAdd,
   bucketRemove,
@@ -12,14 +12,13 @@ import {
   createSnapshot,
   deleteProfile,
   deleteSnapshot,
-  detectRoots,
   exportProfile,
   fetchIcon,
-  getActiveRoot,
   getAppSettings,
   getMirrorInfo,
   getProfile,
   getScoopConfig,
+  getScoopEnv,
   importProfile,
   installPackage,
   listBuckets,
@@ -29,16 +28,16 @@ import {
   listSnapshots,
   listUpdates,
   matchRegistryApps,
+  moveScoopDir,
   profileDiff,
   refreshPackageIndex,
   registerAppInstall,
+  removeScoopEnv,
   checkScoopPrereqs,
   extractScoopBundle,
   finalizeScoopBootstrap,
-  getBootInfo,
   getScoopBundleInfo,
   installScoopOnline,
-  removeBootstrappedScoop,
   renameProfile,
   restoreSnapshotBuckets,
   restoreSnapshotConfig,
@@ -49,7 +48,6 @@ import {
   saveProfileFromCurrent,
   scanInstalledRegistry,
   searchPackages,
-  setActiveRoot,
   setAria2,
   setBucketSource,
   setHold,
@@ -66,17 +64,17 @@ describe("commands 包装", () => {
   beforeEach(() => invokeMock.mockReset().mockResolvedValue(null));
 
   it("命令名与参数符合后端契约", async () => {
-    await detectRoots();
-    expect(invokeMock).toHaveBeenLastCalledWith("detect_roots", undefined);
+    await getScoopEnv();
+    expect(invokeMock).toHaveBeenLastCalledWith("get_scoop_env", undefined);
 
-    await getActiveRoot();
-    expect(invokeMock).toHaveBeenLastCalledWith("get_active_root", undefined);
+    await adoptScoopDir("C:\\scoop");
+    expect(invokeMock).toHaveBeenLastCalledWith("adopt_scoop_dir", { path: "C:\\scoop" });
 
-    await setActiveRoot("C:\\scoop");
-    expect(invokeMock).toHaveBeenLastCalledWith("set_active_root", { path: "C:\\scoop" });
+    await moveScoopDir("D:\\scoop");
+    expect(invokeMock).toHaveBeenLastCalledWith("move_scoop_dir", { newDir: "D:\\scoop" });
 
-    await addRoot("D:\\scoop");
-    expect(invokeMock).toHaveBeenLastCalledWith("add_root", { path: "D:\\scoop" });
+    await removeScoopEnv();
+    expect(invokeMock).toHaveBeenLastCalledWith("remove_scoop_env", undefined);
 
     await listInstalledApps();
     expect(invokeMock).toHaveBeenLastCalledWith("list_installed_apps", undefined);
@@ -289,11 +287,5 @@ describe("commands 包装", () => {
       proxy: null,
       taskId: "t-1",
     });
-
-    await getBootInfo();
-    expect(invokeMock).toHaveBeenLastCalledWith("get_boot_info", undefined);
-
-    await removeBootstrappedScoop();
-    expect(invokeMock).toHaveBeenLastCalledWith("remove_bootstrapped_scoop", undefined);
   });
 });

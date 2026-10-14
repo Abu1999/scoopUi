@@ -1,6 +1,5 @@
 import type {
   AppSettings,
-  BootInfo,
   BucketInfo,
   BundleInfo,
   FinalizeResult,
@@ -16,17 +15,17 @@ import type {
   RegistryApp,
   RestoreBucketsResult,
   RestorePlan,
-  RootInfo,
   ScoopConfig,
+  ScoopEnvInfo,
   SnapshotSummary,
   UpdateInfo,
 } from "./types";
 import { invoke } from "./tauri";
 
-export const detectRoots = () => invoke<RootInfo[]>("detect_roots");
-export const getActiveRoot = () => invoke<RootInfo | null>("get_active_root");
-export const setActiveRoot = (path: string) => invoke<RootInfo>("set_active_root", { path });
-export const addRoot = (path: string) => invoke<RootInfo>("add_root", { path });
+export const getScoopEnv = () => invoke<ScoopEnvInfo | null>("get_scoop_env");
+export const adoptScoopDir = (path: string) => invoke<ScoopEnvInfo>("adopt_scoop_dir", { path });
+export const moveScoopDir = (newDir: string) => invoke<ScoopEnvInfo>("move_scoop_dir", { newDir });
+export const removeScoopEnv = () => invoke<string>("remove_scoop_env");
 export const listInstalledApps = () => invoke<InstalledApp[]>("list_installed_apps");
 export const listBuckets = () => invoke<BucketInfo[]>("list_buckets");
 export const getScoopConfig = () => invoke<ScoopConfig>("get_scoop_config");
@@ -77,8 +76,6 @@ export const finalizeScoopBootstrap = (dir: string, addToPath: boolean) =>
   invoke<FinalizeResult>("finalize_scoop_bootstrap", { dir, addToPath });
 export const installScoopOnline = (dir: string, proxy: string | null, taskId: string) =>
   invoke<void>("install_scoop_online", { dir, proxy, taskId });
-export const getBootInfo = () => invoke<BootInfo>("get_boot_info");
-export const removeBootstrappedScoop = () => invoke<string>("remove_bootstrapped_scoop");
 
 export const listProfiles = () => invoke<ProfileSummary[]>("list_profiles");
 export const getProfile = (name: string) => invoke<Profile>("get_profile", { name });

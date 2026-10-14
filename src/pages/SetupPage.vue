@@ -32,7 +32,7 @@
           v-model:value="dir"
           size="small"
           class="dir-input"
-          placeholder="默认 %USERPROFILE%\scoop"
+          placeholder="默认 安装目录\scoop"
           @blur="refreshCheck"
           @keyup.enter="refreshCheck"
         />
@@ -87,13 +87,11 @@ import {
 } from "naive-ui";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
-  addRoot,
   checkScoopPrereqs,
   extractScoopBundle,
   finalizeScoopBootstrap,
   getScoopBundleInfo,
   installScoopOnline,
-  setActiveRoot,
 } from "../api/commands";
 import type { BundleInfo, PrereqReport } from "../api/types";
 import { useAppsStore } from "../stores/apps";
@@ -166,8 +164,7 @@ async function pickDir() {
 
 async function finish(target: string) {
   try {
-    await addRoot(target);
-    await setActiveRoot(target);
+    await roots.adopt(target);
   } catch (e) {
     throw new Error(
       `环境已释放到 ${target}，但接入失败：${e}。可点「已经装过 Scoop？选择根目录」手动选择该目录`,

@@ -75,8 +75,8 @@ describe("migrate store", () => {
     const uninstallTask = mocks.runRegistryUninstall.mock.calls[0][1];
     useLogsStore().end({ taskId: uninstallTask, code: 0, success: true });
     await flushPromises();
-    expect(mocks.installPackage).toHaveBeenCalledWith("app", "main", null, false, expect.any(String));
-    const installTask = mocks.installPackage.mock.calls[0][4];
+    expect(mocks.installPackage).toHaveBeenCalledWith("app", "main", null, expect.any(String));
+    const installTask = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId: installTask, code: 0, success: true });
     await flushPromises();
     const result = await running;
@@ -95,7 +95,7 @@ describe("migrate store", () => {
     const uninstallTask = mocks.runRegistryUninstall.mock.calls[0][1];
     useLogsStore().end({ taskId: uninstallTask, code: 1, success: false });
     await flushPromises();
-    const installTask = mocks.installPackage.mock.calls[0][4];
+    const installTask = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId: installTask, code: 0, success: true });
     await flushPromises();
     const result = await running;

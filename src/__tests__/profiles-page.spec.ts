@@ -53,7 +53,7 @@ const profileFixture: Profile = {
   name: "工作",
   created: 1758614400,
   buckets: [{ name: "extras", source: "https://gitee.com/scoop-installer/Extras" }],
-  apps: [{ name: "7zip", bucket: "main", global: false }],
+  apps: [{ name: "7zip", bucket: "main" }],
   settings: { url_proxy: "https://scoop.201704.xyz" },
 };
 
@@ -61,7 +61,7 @@ const diffFixture: ProfileDiff = {
   missing_buckets: [{ name: "extras", source: "https://gitee.com/scoop-installer/Extras" }],
   extra_buckets: [],
   bucket_source_conflicts: [],
-  missing_apps: [{ name: "7zip", bucket: "main", global: false }],
+  missing_apps: [{ name: "7zip", bucket: "main" }],
   extra_apps: [],
   settings: [{ key: "url_proxy", current: null, target: "https://scoop.201704.xyz" }],
 };
@@ -145,7 +145,7 @@ describe("ProfilesPage", () => {
       ...diffFixture,
       missing_buckets: [],
       settings: [],
-      missing_apps: [{ name: "7zip", bucket: "main", global: false }],
+  missing_apps: [{ name: "7zip", bucket: "main" }],
     });
     mocks.installPackage.mockResolvedValue(undefined);
     const wrapper = await mountLoaded();
@@ -154,7 +154,7 @@ describe("ProfilesPage", () => {
     await flushPromises();
     bodyButton("开始执行").click();
     await flushPromises();
-    const taskId = mocks.installPackage.mock.calls[0][4];
+    const taskId = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId, code: 1, success: false });
     await flushPromises();
     expect(messageError).toHaveBeenCalled();

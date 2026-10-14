@@ -33,7 +33,7 @@ const profileFixture: Profile = {
   name: "工作",
   created: 1758614400,
   buckets: [{ name: "extras", source: "https://gitee.com/scoop-installer/Extras" }],
-  apps: [{ name: "7zip", bucket: "main", global: false }],
+  apps: [{ name: "7zip", bucket: "main" }],
   settings: { url_proxy: "https://scoop.201704.xyz" },
 };
 
@@ -50,7 +50,7 @@ const diffFixture: ProfileDiff = {
   missing_buckets: [{ name: "extras", source: "https://gitee.com/scoop-installer/Extras" }],
   extra_buckets: [],
   bucket_source_conflicts: [],
-  missing_apps: [{ name: "7zip", bucket: "main", global: false }],
+  missing_apps: [{ name: "7zip", bucket: "main" }],
   extra_apps: [],
   settings: [{ key: "url_proxy", current: null, target: "https://scoop.201704.xyz" }],
 };
@@ -101,8 +101,8 @@ describe("profiles store", () => {
     const bucketTask = mocks.bucketAdd.mock.calls[0][2];
     useLogsStore().end({ taskId: bucketTask, code: 0, success: true });
     await flushPromises();
-    expect(mocks.installPackage).toHaveBeenCalledWith("7zip", "main", null, false, expect.any(String));
-    const installTask = mocks.installPackage.mock.calls[0][4];
+    expect(mocks.installPackage).toHaveBeenCalledWith("7zip", "main", null, expect.any(String));
+    const installTask = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId: installTask, code: 0, success: true });
     await flushPromises();
     expect(await running).toBe(true);
@@ -115,8 +115,8 @@ describe("profiles store", () => {
     mocks.profileDiff.mockResolvedValue({
       ...emptyDiff,
       missing_apps: [
-        { name: "7zip", bucket: "main", global: false },
-        { name: "git", bucket: "main", global: false },
+        { name: "7zip", bucket: "main" },
+        { name: "git", bucket: "main" },
       ],
     });
     mocks.installPackage.mockResolvedValue(undefined);
@@ -125,7 +125,7 @@ describe("profiles store", () => {
     store.detail = profileFixture;
     const running = store.apply(false);
     await flushPromises();
-    const taskId = mocks.installPackage.mock.calls[0][4];
+    const taskId = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId, code: 1, success: false });
     await flushPromises();
     expect(await running).toBe(false);

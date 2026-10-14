@@ -87,11 +87,11 @@ describe("MigratePage", () => {
     const install = wrapper.findAll("button").find((b) => b.text() === "安装");
     await install!.trigger("click");
     await flushPromises();
-    const taskId = mocks.installPackage.mock.calls[0][4];
+    const taskId = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId, code: 0, success: true });
     await flushPromises();
     expect(mocks.runRegistryUninstall).not.toHaveBeenCalled();
-    expect(mocks.installPackage).toHaveBeenCalledWith("app", "main", null, false, expect.any(String));
+    expect(mocks.installPackage).toHaveBeenCalledWith("app", "main", null, expect.any(String));
     expect(messageSuccess).toHaveBeenCalled();
   });
 
@@ -113,7 +113,7 @@ describe("MigratePage", () => {
     const uninstallTask = mocks.runRegistryUninstall.mock.calls[0][1];
     useLogsStore().end({ taskId: uninstallTask, code: 0, success: true });
     await flushPromises();
-    const installTask = mocks.installPackage.mock.calls[0][4];
+    const installTask = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId: installTask, code: 0, success: true });
     await flushPromises();
     expect(mocks.installPackage).toHaveBeenCalled();

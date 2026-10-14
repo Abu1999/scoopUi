@@ -40,15 +40,14 @@ export const installPackage = (
   name: string,
   bucket: string | null,
   version: string | null,
-  global: boolean,
   taskId: string,
-) => invoke<void>("install_package", { name, bucket, version, global, taskId });
-export const uninstallPackage = (name: string, global: boolean, purge: boolean, taskId: string) =>
-  invoke<void>("uninstall_package", { name, global, purge, taskId });
-export const updatePackage = (name: string | null, all: boolean, global: boolean, taskId: string) =>
-  invoke<void>("update_package", { name, all, global, taskId });
-export const setHold = (name: string, hold: boolean, global: boolean, taskId: string) =>
-  invoke<void>("set_hold", { name, hold, global, taskId });
+) => invoke<void>("install_package", { name, bucket, version, taskId });
+export const uninstallPackage = (name: string, purge: boolean, taskId: string) =>
+  invoke<void>("uninstall_package", { name, purge, taskId });
+export const updatePackage = (name: string | null, all: boolean, taskId: string) =>
+  invoke<void>("update_package", { name, all, taskId });
+export const setHold = (name: string, hold: boolean, taskId: string) =>
+  invoke<void>("set_hold", { name, hold, taskId });
 export const bucketAdd = (name: string, repo: string | null, taskId: string) =>
   invoke<void>("bucket_add", { name, repo, taskId });
 export const bucketRemove = (name: string, taskId: string) =>
@@ -66,8 +65,7 @@ export const setProxy = (value: string | null) => invoke<void>("set_proxy", { va
 export const setAria2 = (enabled: boolean, split: number | null, maxConnection: number | null) =>
   invoke<void>("set_aria2", { enabled, split, maxConnection });
 export const testUrlProxy = (proxy: string | null) => invoke<ProxyTest>("test_url_proxy", { proxy });
-export const registerAppInstall = (name: string, global: boolean) =>
-  invoke<string[]>("register_app_install", { name, global });
+export const registerAppInstall = (name: string) => invoke<string[]>("register_app_install", { name });
 export const getScoopBundleInfo = () => invoke<BundleInfo>("get_scoop_bundle_info");
 export const checkScoopPrereqs = (dir: string) => invoke<PrereqReport>("check_scoop_prereqs", { dir });
 export const extractScoopBundle = (dir: string, taskId: string) =>

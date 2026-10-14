@@ -58,7 +58,6 @@ const git: InstalledApp = {
   persist: [],
   bin: ["git"],
   app_dir: "C:\\scoop\\apps\\git",
-  global: false,
 };
 
 function findButton(wrapper: ReturnType<typeof mount>, text: string) {
@@ -79,8 +78,8 @@ describe("AppDetail 操作", () => {
     const wrapper = mount(AppDetail, { props: { app: git } });
     await findButton(wrapper, "更新").trigger("click");
     await flushPromises();
-    expect(mocks.updatePackage).toHaveBeenCalledWith("git", false, false, expect.any(String));
-    const taskId = mocks.updatePackage.mock.calls[0][3];
+    expect(mocks.updatePackage).toHaveBeenCalledWith("git", false, expect.any(String));
+    const taskId = mocks.updatePackage.mock.calls[0][2];
     useLogsStore().end({ taskId, code: 0, success: true });
     await flushPromises();
     expect(mocks.listInstalledApps).toHaveBeenCalledTimes(1);
@@ -93,8 +92,8 @@ describe("AppDetail 操作", () => {
     const wrapper = mount(AppDetail, { props: { app: git } });
     await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
     await flushPromises();
-    expect(mocks.uninstallPackage).toHaveBeenCalledWith("git", false, false, expect.any(String));
-    const taskId = mocks.uninstallPackage.mock.calls[0][3];
+    expect(mocks.uninstallPackage).toHaveBeenCalledWith("git", false, expect.any(String));
+    const taskId = mocks.uninstallPackage.mock.calls[0][2];
     useLogsStore().end({ taskId, code: 1, success: false });
     await flushPromises();
     expect(messageError).toHaveBeenCalledWith("操作失败（退出码 1），详见任务日志");
@@ -106,7 +105,7 @@ describe("AppDetail 操作", () => {
     const wrapper = mount(AppDetail, { props: { app: git } });
     await findButton(wrapper, "锁定").trigger("click");
     await flushPromises();
-    expect(mocks.setHold).toHaveBeenCalledWith("git", true, false, expect.any(String));
+    expect(mocks.setHold).toHaveBeenCalledWith("git", true, expect.any(String));
   });
 
   it("有任务运行中时操作按钮禁用", () => {
@@ -123,14 +122,5 @@ describe("AppDetail 操作", () => {
     await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
     await flushPromises();
     expect(mocks.uninstallPackage).not.toHaveBeenCalled();
-  });
-
-  it("全局应用操作传 global=true", async () => {
-    mocks.uninstallPackage.mockResolvedValue(undefined);
-    const globalGit: InstalledApp = { ...git, global: true };
-    const wrapper = mount(AppDetail, { props: { app: globalGit } });
-    await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
-    await flushPromises();
-    expect(mocks.uninstallPackage).toHaveBeenCalledWith("git", true, false, expect.any(String));
   });
 });

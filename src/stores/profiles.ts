@@ -34,13 +34,11 @@ function runTaskFor(step: ApplyStep, diff: ProfileDiff) {
     return runTask(step.label, (taskId) => bucketAdd(bucket.name, bucket.source, taskId));
   }
   if (step.key.startsWith("install:")) {
-    const app = diff.missing_apps.find((a) => step.key === `install:${a.name}@${a.global}`)!;
-    return runTask(step.label, (taskId) =>
-      installPackage(app.name, app.bucket, null, app.global, taskId),
-    );
+    const app = diff.missing_apps.find((a) => step.key === `install:${a.name}`)!;
+    return runTask(step.label, (taskId) => installPackage(app.name, app.bucket, null, taskId));
   }
-  const app = diff.extra_apps.find((a) => step.key === `uninstall:${a.name}@${a.global}`)!;
-  return runTask(step.label, (taskId) => uninstallPackage(app.name, app.global, false, taskId));
+  const app = diff.extra_apps.find((a) => step.key === `uninstall:${a.name}`)!;
+  return runTask(step.label, (taskId) => uninstallPackage(app.name, false, taskId));
 }
 
 export const useProfilesStore = defineStore("profiles", {
@@ -165,16 +163,16 @@ export const useProfilesStore = defineStore("profiles", {
       }
       for (const a of diff.missing_apps) {
         steps.push({
-          key: `install:${a.name}@${a.global}`,
-          label: `安装 ${a.name}${a.global ? "（全局）" : ""}`,
+          key: `install:${a.name}`,
+          label: `安装 ${a.name}`,
           status: "pending",
         });
       }
       if (uninstallExtra) {
         for (const a of diff.extra_apps) {
           steps.push({
-            key: `uninstall:${a.name}@${a.global}`,
-            label: `卸载 ${a.name}${a.global ? "（全局）" : ""}`,
+            key: `uninstall:${a.name}`,
+            label: `卸载 ${a.name}`,
             status: "pending",
           });
         }
@@ -205,8 +203,8 @@ export const useProfilesStore = defineStore("profiles", {
         if (record.success) {
           step.status = "success";
           if (step.key.startsWith("install:")) {
-            const app = diff.missing_apps.find((a) => step.key === `install:${a.name}@${a.global}`);
-            if (app) await registerInstall(app.name, app.global);
+            const app = diff.missing_apps.find((a) => step.key === `install:${a.name}`);
+            if (app) await registerInstall(app.name);
           }
         } else {
           step.status = "failed";

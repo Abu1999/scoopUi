@@ -58,14 +58,6 @@ const ops: MaintenanceOp[] = [
     confirm: "确定清理用户应用的旧版本（scoop cleanup -a）？",
   },
   {
-    key: "cleanup_global",
-    title: "清理旧版本（全局应用）",
-    desc: "删除全局应用中保留的历史版本目录",
-    command: "scoop cleanup -a -g",
-    button: "清理全局旧版本",
-    confirm: "确定清理全局应用的旧版本（scoop cleanup -a -g）？",
-  },
-  {
     key: "checkup",
     title: "检查问题",
     desc: "运行 scoop checkup 诊断环境与配置问题",

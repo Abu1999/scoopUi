@@ -68,9 +68,8 @@
         <div v-if="snapshots.plan" class="section">
           <div class="section-title">缺失应用（{{ snapshots.plan.missing_apps.length }}）</div>
           <div v-if="snapshots.plan.missing_apps.length === 0" class="hint">没有缺失应用</div>
-          <div v-for="a in snapshots.plan.missing_apps" :key="`${a.name}@${a.global}`" class="line">
+          <div v-for="a in snapshots.plan.missing_apps" :key="a.name" class="line">
             <span class="mono">{{ a.name }}</span>
-            <span v-if="a.global" class="badge">全局</span>
             <span class="dim">{{ a.version }} · {{ a.bucket ?? "未知软件源" }}</span>
             <n-button size="tiny" :disabled="busy" @click="doInstall(a)">安装</n-button>
           </div>
@@ -285,13 +284,6 @@ async function doInstallAll() {
   color: var(--text-dim);
   font-size: 12px;
   word-break: break-all;
-}
-.badge {
-  font-size: 11px;
-  color: #18a058;
-  border: 1px solid #18a058;
-  border-radius: 3px;
-  padding: 0 4px;
 }
 .hint {
   color: var(--text-dim);

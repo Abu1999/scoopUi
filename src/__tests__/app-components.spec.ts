@@ -83,7 +83,6 @@ const git: InstalledApp = {
   persist: ["etc/gitconfig"],
   bin: ["git"],
   app_dir: "C:\\scoop\\apps\\git",
-  global: false,
 };
 
 const mirrorFixture: MirrorInfo = {
@@ -166,28 +165,25 @@ describe("AppList", () => {
       props: {
         apps: [git],
         selected: null,
-        updates: { git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false, global: false } },
+        updates: { git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false } },
       },
     });
     expect(wrapper.text()).toContain("可更新");
   });
 
-  it("全局应用显示徽标并按 key 选中", async () => {
-    const globalGit: InstalledApp = { ...git, global: true };
+  it("按应用名选中并 emit select", async () => {
     const wrapper = mount(AppList, {
       props: {
-        apps: [globalGit],
-        selected: "git@global",
+        apps: [git],
+        selected: "git",
         updates: {
-          "git@global": { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false, global: true },
+          git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false },
         },
       },
     });
-    expect(wrapper.text()).toContain("全局");
-    expect(wrapper.text()).toContain("可更新");
     expect(wrapper.find(".row").classes()).toContain("active");
     await wrapper.find(".row").trigger("click");
-    expect(wrapper.emitted("select")?.[0]).toEqual(["git@global"]);
+    expect(wrapper.emitted("select")?.[0]).toEqual(["git"]);
   });
 });
 
@@ -230,7 +226,7 @@ describe("AppDetail", () => {
 
   it("可更新时展示新版本提示", () => {
     const apps = useAppsStore();
-    apps.updates = { git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false, global: false } };
+    apps.updates = { git: { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false } };
     const wrapper = mount(AppDetail, { props: { app: git } });
     expect(wrapper.text()).toContain("可更新至 2.55.0.5");
   });
@@ -247,11 +243,11 @@ describe("InstalledPage", () => {
     expect(wrapper.text()).toContain("未找到 scoop 根目录");
   });
 
-  it("全部更新先更新用户应用再更新全局应用", async () => {
+  it("全部更新调用单次 updatePackage", async () => {
     messageSuccess.mockClear();
     listInstalledApps.mockResolvedValue([git]);
     listUpdates.mockResolvedValue([
-      { name: "git", current: "2.55.0.5", latest: "2.56.0.2", bucket: "main", hold: false, global: true },
+      { name: "git", current: "2.55.0.5", latest: "2.56.0.2", bucket: "main", hold: false },
     ]);
     otherCommands.updatePackage.mockResolvedValue(undefined);
     const pinia = createPinia();
@@ -262,13 +258,10 @@ describe("InstalledPage", () => {
     await flushPromises();
     await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
     await flushPromises();
-    expect(otherCommands.updatePackage).toHaveBeenCalledWith(null, true, false, expect.any(String));
-    const userTask = otherCommands.updatePackage.mock.calls[0][3];
-    useLogsStore().end({ taskId: userTask, code: 0, success: true });
-    await flushPromises();
-    expect(otherCommands.updatePackage).toHaveBeenCalledWith(null, true, true, expect.any(String));
-    const globalTask = otherCommands.updatePackage.mock.calls[1][3];
-    useLogsStore().end({ taskId: globalTask, code: 0, success: true });
+    expect(otherCommands.updatePackage).toHaveBeenCalledTimes(1);
+    expect(otherCommands.updatePackage).toHaveBeenCalledWith(null, true, expect.any(String));
+    const task = otherCommands.updatePackage.mock.calls[0][2];
+    useLogsStore().end({ taskId: task, code: 0, success: true });
     await flushPromises();
     expect(messageSuccess).toHaveBeenCalledWith("更新完成");
   });

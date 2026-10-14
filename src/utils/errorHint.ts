@@ -19,7 +19,7 @@ const RULES: Array<{ keys: string[]; hint: string }> = [
   },
   {
     keys: ["access is denied", "拒绝访问", "requires admin", "admin rights", "需要管理员"],
-    hint: "权限不足：以管理员身份运行或改用全局安装",
+    hint: "权限不足：检查安装目录权限或以管理员身份运行",
   },
   {
     keys: ["already installed", "already exists", "conflict", "冲突"],

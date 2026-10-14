@@ -12,7 +12,6 @@
       <div class="info">
         <div class="name">
           {{ app.name }}
-          <span v-if="app.global" class="global">全局</span>
           <span v-if="app.hold" class="hold">锁定</span>
           <span v-if="updates[appKey(app)]" class="update">可更新</span>
         </div>
@@ -59,14 +58,6 @@ defineEmits<{ select: [name: string] }>();
 .meta {
   font-size: 12px;
   color: var(--text-dim);
-}
-.global {
-  margin-left: 6px;
-  font-size: 11px;
-  color: #18a058;
-  border: 1px solid #18a058;
-  border-radius: 3px;
-  padding: 0 4px;
 }
 .hold {
   margin-left: 6px;

@@ -109,13 +109,13 @@ describe("BucketsPage 操作", () => {
     expect(mocks.listBuckets).toHaveBeenCalledTimes(1);
   });
 
-  it("更新 Scoop 与软件源调用 updatePackage(null,false,false)", async () => {
+  it("更新 Scoop 与软件源调用 updatePackage(null,false)", async () => {
     const wrapper = mount(BucketsPage);
     await flushPromises();
     const button = wrapper.findAll("button").find((b) => b.text().includes("更新 Scoop 与软件源"));
     await button!.trigger("click");
     await flushPromises();
-    expect(mocks.updatePackage).toHaveBeenCalledWith(null, false, false, expect.any(String));
+    expect(mocks.updatePackage).toHaveBeenCalledWith(null, false, expect.any(String));
   });
 
   it("有任务运行时按钮禁用", async () => {

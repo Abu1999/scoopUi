@@ -38,7 +38,6 @@ const appFixture = {
   persist: [],
   bin: ["git"],
   app_dir: "C:\\scoop\\apps\\git",
-  global: false,
 };
 
 describe("stores", () => {
@@ -127,7 +126,7 @@ describe("stores", () => {
   it("apps.load 拉取可更新列表", async () => {
     mocks.listInstalledApps.mockResolvedValue([appFixture]);
     mocks.listUpdates.mockResolvedValue([
-      { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false, global: false },
+      { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false },
     ]);
     const store = useAppsStore();
     await store.load();
@@ -162,21 +161,6 @@ describe("stores", () => {
     expect(store.apps.map((a) => a.name)).toEqual(["7zip"]);
     expect(store.selectedKey).toBe("7zip");
     expect(store.loading).toBe(false);
-  });
-
-  it("apps.load 全局应用以独立 key 记录更新", async () => {
-    const globalGit = { ...appFixture, global: true, app_dir: "C:\\ProgramData\\scoop\\apps\\git" };
-    mocks.listInstalledApps.mockResolvedValue([appFixture, globalGit]);
-    mocks.listUpdates.mockResolvedValue([
-      { name: "git", current: "2.53.0.2", latest: "2.55.0.5", bucket: "main", hold: false, global: true },
-    ]);
-    const store = useAppsStore();
-    await store.load();
-    expect(store.selectedKey).toBe("git");
-    expect(store.updateFor(appFixture)).toBeNull();
-    expect(store.updateFor(globalGit)?.latest).toBe("2.55.0.5");
-    store.select("git@global");
-    expect(store.selected?.global).toBe(true);
   });
 
   it("buckets.load 拉取列表", async () => {

@@ -123,7 +123,7 @@ async function doRemove(name: string) {
 async function doUpdateAll() {
   if (busy.value) return;
   ui.logDrawerOpen = true;
-  const record = await runTask("更新 Scoop 与软件源", (taskId) => updatePackage(null, false, false, taskId));
+  const record = await runTask("更新 Scoop 与软件源", (taskId) => updatePackage(null, false, taskId));
   await afterTask(record);
 }
 </script>

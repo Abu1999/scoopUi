@@ -29,13 +29,10 @@
       <div class="install">
         <div class="install-row">
           <n-input v-model:value="version" size="small" placeholder="版本（留空 = 最新）" class="version" />
-          <n-checkbox v-model:checked="globalInstall">全局安装</n-checkbox>
         </div>
         <div class="install-row">
           <n-button type="primary" size="small" :disabled="busy" @click="doInstall">安装</n-button>
-          <span class="install-source">
-            来自软件源 {{ pkg.bucket }}<span v-if="globalInstall">；全局安装可能需要管理员权限</span>
-          </span>
+          <span class="install-source">来自软件源 {{ pkg.bucket }}</span>
         </div>
       </div>
     </template>
@@ -46,7 +43,6 @@
 import { computed, ref } from "vue";
 import {
   NButton,
-  NCheckbox,
   NDescriptions,
   NDescriptionsItem,
   NInput,
@@ -71,7 +67,6 @@ const logs = useLogsStore();
 const roots = useRootsStore();
 const ui = useUiStore();
 const version = ref("");
-const globalInstall = ref(true);
 const busy = computed(() => logs.busy);
 
 async function doInstall() {
@@ -81,10 +76,10 @@ async function doInstall() {
   const ver = version.value.trim() === "" ? null : version.value.trim();
   ui.logDrawerOpen = true;
   const record = await runTask(`安装 ${pkg.name}`, (taskId) =>
-    installPackage(pkg.name, pkg.bucket, ver, globalInstall.value, taskId),
+    installPackage(pkg.name, pkg.bucket, ver, taskId),
   );
   if (record.success) {
-    const registered = await registerInstall(pkg.name, globalInstall.value);
+    const registered = await registerInstall(pkg.name);
     message.success(
       registered.length > 0 ? `已安装 ${pkg.name}（已注册右键菜单/文件关联）` : `已安装 ${pkg.name}`,
     );

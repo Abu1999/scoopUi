@@ -156,12 +156,11 @@ export const useSnapshotsStore = defineStore("snapshots", {
     async installApp(app: SnapshotApp): Promise<boolean> {
       if (!this.selectedId) return false;
       this.restoreError = null;
-      const record = await runTask(
-        `安装 ${app.name}${app.global ? "（全局）" : ""}`,
-        (taskId) => installPackage(app.name, app.bucket, null, app.global, taskId),
+      const record = await runTask(`安装 ${app.name}`, (taskId) =>
+        installPackage(app.name, app.bucket, null, taskId),
       );
       if (record.success) {
-        await registerInstall(app.name, app.global);
+        await registerInstall(app.name);
         await Promise.all([useAppsStore().load(), this.refreshPlan()]);
         return true;
       }
@@ -176,8 +175,8 @@ export const useSnapshotsStore = defineStore("snapshots", {
       this.restoreError = null;
       this.restoring = true;
       this.steps = plan.missing_apps.map((a) => ({
-        key: `install:${a.name}@${a.global}`,
-        label: `安装 ${a.name}${a.global ? "（全局）" : ""}`,
+        key: `install:${a.name}`,
+        label: `安装 ${a.name}`,
         status: "pending" as const,
       }));
       useUiStore().logDrawerOpen = true;
@@ -188,13 +187,13 @@ export const useSnapshotsStore = defineStore("snapshots", {
           continue;
         }
         step.status = "running";
-        const app = plan.missing_apps.find((a) => step.key === `install:${a.name}@${a.global}`)!;
+        const app = plan.missing_apps.find((a) => step.key === `install:${a.name}`)!;
         const record = await runTask(step.label, (taskId) =>
-          installPackage(app.name, app.bucket, null, app.global, taskId),
+          installPackage(app.name, app.bucket, null, taskId),
         );
         if (record.success) {
           step.status = "success";
-          await registerInstall(app.name, app.global);
+          await registerInstall(app.name);
         } else {
           step.status = "failed";
           this.restoreError = record.hint

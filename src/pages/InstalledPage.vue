@@ -11,7 +11,7 @@
               全部更新（{{ apps.updateCount }}）
             </n-button>
           </template>
-          确定更新全部 {{ apps.updateCount }} 个可更新应用（含全局）？
+          确定更新全部 {{ apps.updateCount }} 个可更新应用？
         </n-popconfirm>
       </div>
       <n-alert v-if="apps.error" type="error" size="small" class="alert">{{ apps.error }}</n-alert>
@@ -44,7 +44,6 @@ const logs = useLogsStore();
 const ui = useUiStore();
 const message = useMessage();
 const busy = computed(() => logs.busy);
-const hasGlobalUpdates = computed(() => Object.values(apps.updates).some((u) => u.global));
 
 function failMessage(label: string, record: TaskRecord): string {
   return record.hint
@@ -55,21 +54,10 @@ function failMessage(label: string, record: TaskRecord): string {
 async function updateAll() {
   if (busy.value || apps.updateCount === 0) return;
   ui.logDrawerOpen = true;
-  const userTask = await runTask("全部更新（用户）", (taskId) =>
-    updatePackage(null, true, false, taskId),
-  );
-  if (!userTask.success) {
-    message.error(failMessage("更新", userTask));
+  const record = await runTask("全部更新", (taskId) => updatePackage(null, true, taskId));
+  if (!record.success) {
+    message.error(failMessage("更新", record));
     return;
-  }
-  if (hasGlobalUpdates.value) {
-    const globalTask = await runTask("全部更新（全局）", (taskId) =>
-      updatePackage(null, true, true, taskId),
-    );
-    if (!globalTask.success) {
-      message.error(failMessage("全局更新", globalTask));
-      return;
-    }
   }
   message.success("更新完成");
   await apps.load();

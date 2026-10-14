@@ -153,8 +153,8 @@ describe("设置区块", () => {
     const install = wrapper.findAll("button").find((b) => b.text().includes("安装 aria2"));
     await install!.trigger("click");
     await flushPromises();
-    expect(mocks.installPackage).toHaveBeenCalledWith("aria2", null, null, false, expect.any(String));
-    const taskId = mocks.installPackage.mock.calls[0][4];
+    expect(mocks.installPackage).toHaveBeenCalledWith("aria2", null, null, expect.any(String));
+    const taskId = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId, code: 0, success: true });
     await flushPromises();
     expect(wrapper.emitted("changed")).toBeTruthy();
@@ -221,7 +221,7 @@ describe("设置区块", () => {
     const install = wrapper.findAll("button").find((b) => b.text().includes("安装 aria2"));
     await install!.trigger("click");
     await flushPromises();
-    const taskId = mocks.installPackage.mock.calls[0][4];
+    const taskId = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId, code: 1, success: false });
     await flushPromises();
     expect(messageError).toHaveBeenCalled();

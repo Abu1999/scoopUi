@@ -79,7 +79,7 @@ async function installAria2() {
   if (busy.value) return;
   ui.logDrawerOpen = true;
   const record = await runTask("安装 aria2", (taskId) =>
-    installPackage("aria2", null, null, false, taskId),
+    installPackage("aria2", null, null, taskId),
   );
   if (record.success) {
     installed.value = true;

@@ -63,10 +63,10 @@ export const useMigrateStore = defineStore("migrate", {
         }
       }
       const record = await runTask(`安装 ${match.name}`, (taskId) =>
-        installPackage(match.name, match.bucket, null, false, taskId),
+        installPackage(match.name, match.bucket, null, taskId),
       );
       if (record.success) {
-        await registerInstall(match.name, false);
+        await registerInstall(match.name);
         await useAppsStore().load();
         return { ok: true, warning, error: null };
       }

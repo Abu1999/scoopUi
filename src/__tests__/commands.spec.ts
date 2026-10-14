@@ -107,36 +107,32 @@ describe("commands 包装", () => {
   });
 
   it("M3 操作命令名与参数符合后端契约", async () => {
-    await installPackage("git", "main", null, false, "t-2");
+    await installPackage("git", "main", null, "t-2");
     expect(invokeMock).toHaveBeenLastCalledWith("install_package", {
       name: "git",
       bucket: "main",
       version: null,
-      global: false,
       taskId: "t-2",
     });
 
-    await uninstallPackage("git", false, true, "t-2");
+    await uninstallPackage("git", true, "t-2");
     expect(invokeMock).toHaveBeenLastCalledWith("uninstall_package", {
       name: "git",
-      global: false,
       purge: true,
       taskId: "t-2",
     });
 
-    await updatePackage(null, true, false, "t-2");
+    await updatePackage(null, true, "t-2");
     expect(invokeMock).toHaveBeenLastCalledWith("update_package", {
       name: null,
       all: true,
-      global: false,
       taskId: "t-2",
     });
 
-    await setHold("git", true, false, "t-2");
+    await setHold("git", true, "t-2");
     expect(invokeMock).toHaveBeenLastCalledWith("set_hold", {
       name: "git",
       hold: true,
-      global: false,
       taskId: "t-2",
     });
 
@@ -261,8 +257,8 @@ describe("commands 包装", () => {
   });
 
   it("安装钩子命令名与参数符合后端契约", async () => {
-    await registerAppInstall("git", true);
-    expect(invokeMock).toHaveBeenLastCalledWith("register_app_install", { name: "git", global: true });
+    await registerAppInstall("git");
+    expect(invokeMock).toHaveBeenLastCalledWith("register_app_install", { name: "git" });
   });
 
   it("M8 引导命令名与参数符合后端契约", async () => {

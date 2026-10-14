@@ -56,10 +56,10 @@
               缺少软件源：{{ profiles.diff!.missing_buckets.map((b) => b.name).join("、") }}
             </div>
             <div v-if="profiles.diff!.missing_apps.length" class="diff-line">
-              缺少应用：{{ profiles.diff!.missing_apps.map(appLabel).join("、") }}
+              缺少应用：{{ profiles.diff!.missing_apps.map((a) => a.name).join("、") }}
             </div>
             <div v-if="profiles.diff!.extra_apps.length" class="diff-line">
-              多余应用（默认不卸载）：{{ profiles.diff!.extra_apps.map(appLabel).join("、") }}
+              多余应用（默认不卸载）：{{ profiles.diff!.extra_apps.map((a) => a.name).join("、") }}
             </div>
             <div v-if="profiles.diff!.extra_buckets.length" class="diff-line">
               多余软件源（不处理）：{{ profiles.diff!.extra_buckets.join("、") }}
@@ -85,9 +85,8 @@
         <div class="section">
           <div class="section-title">应用（{{ profiles.detail.apps.length }}）</div>
           <div v-if="profiles.detail.apps.length === 0" class="hint">无</div>
-          <div v-for="a in profiles.detail.apps" :key="`${a.name}@${a.global}`" class="line">
+          <div v-for="a in profiles.detail.apps" :key="a.name" class="line">
             <span class="mono">{{ a.name }}</span>
-            <span v-if="a.global" class="badge">全局</span>
             <span class="dim">{{ a.bucket ?? "（未知软件源）" }}</span>
           </div>
         </div>
@@ -160,7 +159,6 @@
 import { computed, onMounted, ref } from "vue";
 import { NAlert, NButton, NCheckbox, NInput, NModal, NPopconfirm, useMessage } from "naive-ui";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import type { ProfileApp } from "../api/types";
 import { useLogsStore } from "../stores/logs";
 import { useProfilesStore } from "../stores/profiles";
 import type { ApplyStepStatus } from "../stores/profiles";
@@ -206,10 +204,6 @@ function formatTime(sec: number): string {
 
 function formatValue(v: unknown): string {
   return typeof v === "string" ? v : JSON.stringify(v);
-}
-
-function appLabel(a: ProfileApp): string {
-  return a.global ? `${a.name}（全局）` : a.name;
 }
 
 function statusText(s: ApplyStepStatus): string {
@@ -424,13 +418,6 @@ async function doApply() {
   color: var(--text-dim);
   font-size: 12px;
   word-break: break-all;
-}
-.badge {
-  font-size: 11px;
-  color: #18a058;
-  border: 1px solid #18a058;
-  border-radius: 3px;
-  padding: 0 4px;
 }
 .hint {
   color: var(--text-dim);

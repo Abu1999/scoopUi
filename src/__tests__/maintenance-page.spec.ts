@@ -52,7 +52,7 @@ describe("MaintenancePage", () => {
   it("需确认的操作在确认后调用", async () => {
     const wrapper = mount(MaintenancePage);
     const confirms = wrapper.findAllComponents(NPopconfirm);
-    expect(confirms.length).toBeGreaterThanOrEqual(4);
+    expect(confirms.length).toBe(3);
     await confirms[0].vm.$emit("positive-click");
     await flushPromises();
     expect(mocks.runMaintenance).toHaveBeenCalledWith("cache_rm_all", expect.any(String));

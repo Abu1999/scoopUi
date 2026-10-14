@@ -209,28 +209,31 @@ describe("StorePage", () => {
     mocks.searchPackages.mockResolvedValue([pkg("git", { description: "git" })]);
     const wrapper = mount(StorePage);
     await flushPromises();
-    await wrapper.find('[role="checkbox"]').trigger("click");
     const button = wrapper.findAll("button").find((b) => b.text().includes("安装"));
     expect(button).toBeTruthy();
     await button!.trigger("click");
     await flushPromises();
-    expect(mocks.installPackage).toHaveBeenCalledWith("git", "main", null, false, expect.any(String));
-    const taskId = mocks.installPackage.mock.calls[0][4];
+    expect(mocks.installPackage).toHaveBeenCalledWith("git", "main", null, expect.any(String));
+    const taskId = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId, code: 0, success: true });
     await flushPromises();
-    expect(mocks.registerAppInstall).toHaveBeenCalledWith("git", false);
+    expect(mocks.registerAppInstall).toHaveBeenCalledWith("git");
     expect(mocks.listInstalledApps).toHaveBeenCalled();
     expect(mocks.getScoopEnv).toHaveBeenCalled();
   });
 
-  it("全局安装默认勾选", async () => {
+  it("安装调用 installPackage 不传全局参数", async () => {
     mocks.searchPackages.mockResolvedValue([pkg("git")]);
     const wrapper = mount(StorePage);
     await flushPromises();
-    expect(wrapper.find('[role="checkbox"]').classes()).toContain("n-checkbox--checked");
+    const button = wrapper.findAll("button").find((b) => b.text().includes("安装"));
+    await button!.trigger("click");
+    await flushPromises();
+    expect(mocks.installPackage).toHaveBeenCalledWith("git", "main", null, expect.any(String));
+    expect(wrapper.find('[role="checkbox"]').exists()).toBe(false);
   });
 
-  it("版本与全局选项传入安装命令", async () => {
+  it("版本传入安装命令", async () => {
     mocks.searchPackages.mockResolvedValue([pkg("git")]);
     const wrapper = mount(StorePage);
     await flushPromises();
@@ -238,7 +241,7 @@ describe("StorePage", () => {
     const button = wrapper.findAll("button").find((b) => b.text().includes("安装"));
     await button!.trigger("click");
     await flushPromises();
-    expect(mocks.installPackage).toHaveBeenCalledWith("git", "main", "2.7.0", true, expect.any(String));
+    expect(mocks.installPackage).toHaveBeenCalledWith("git", "main", "2.7.0", expect.any(String));
   });
 
   it("同一时刻重复点击安装只发起一次", async () => {
@@ -261,7 +264,7 @@ describe("StorePage", () => {
     const button = wrapper.findAll("button").find((b) => b.text().includes("安装"));
     await button!.trigger("click");
     await flushPromises();
-    const taskId = mocks.installPackage.mock.calls[0][4];
+    const taskId = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId, code: 1, success: false });
     await flushPromises();
     expect(messageError).toHaveBeenCalledWith("安装失败（退出码 1），详见任务日志");

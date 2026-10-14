@@ -54,7 +54,7 @@ const planFixture: RestorePlan = {
   config_present: true,
   reset_buckets: [{ name: "main", source: "https://gitee.com/scoop-installer/Main" }],
   missing_buckets: [{ name: "extras", source: "https://gitee.com/scoop-installer/Extras" }],
-  missing_apps: [{ name: "7zip", bucket: "main", version: "26.00", hold: false, global: false }],
+  missing_apps: [{ name: "7zip", bucket: "main", version: "26.00", hold: false }],
 };
 
 describe("BackupPage", () => {
@@ -134,7 +134,7 @@ describe("BackupPage", () => {
     const install = wrapper.findAll("button").find((b) => b.text() === "安装");
     await install!.trigger("click");
     await flushPromises();
-    const taskId = mocks.installPackage.mock.calls[0][4];
+    const taskId = mocks.installPackage.mock.calls[0][3];
     useLogsStore().end({ taskId, code: 1, success: false });
     await flushPromises();
     expect(messageError).toHaveBeenCalled();

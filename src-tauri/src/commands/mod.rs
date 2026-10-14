@@ -62,14 +62,8 @@ impl Context {
     }
 }
 
-pub fn scan_installed(ctx: &Context, root: &std::path::Path) -> Vec<crate::domain::installed::InstalledApp> {
-    let mut apps = crate::domain::installed::scan(&root.join("apps"), false);
-    let global = ctx.global_dir();
-    if global.join("apps").is_dir() {
-        apps.extend(crate::domain::installed::scan(&global.join("apps"), true));
-    }
-    apps.sort_by(|a, b| {
-        a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.global.cmp(&b.global))
-    });
+pub fn scan_installed(root: &std::path::Path) -> Vec<crate::domain::installed::InstalledApp> {
+    let mut apps = crate::domain::installed::scan(&root.join("apps"));
+    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     apps
 }

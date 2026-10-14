@@ -28,7 +28,7 @@ pub fn quote_ps(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
 }
 
-pub fn build(root: &Path, global: Option<&Path>, args: &[String]) -> Result<ScoopCommand, AppError> {
+pub fn build(root: &Path, args: &[String]) -> Result<ScoopCommand, AppError> {
     let ps1 = root.join("apps").join("scoop").join("current").join("bin").join("scoop.ps1");
     if !ps1.is_file() {
         return Err(AppError::MissingScoopScript(ps1.display().to_string()));
@@ -39,10 +39,7 @@ pub fn build(root: &Path, global: Option<&Path>, args: &[String]) -> Result<Scoo
         quote_ps(&ps1.display().to_string()),
         joined
     );
-    let mut envs = vec![("SCOOP".to_string(), root.display().to_string())];
-    if let Some(g) = global {
-        envs.push(("SCOOP_GLOBAL".to_string(), g.display().to_string()));
-    }
+    let envs = vec![("SCOOP".to_string(), root.display().to_string())];
     let display = format!("scoop {}", args.join(" "));
     Ok(ScoopCommand {
         program: "powershell.exe".to_string(),
@@ -302,25 +299,20 @@ mod tests {
     fn build_sets_envs_and_script() {
         let tmp = tempfile::tempdir().unwrap();
         let root = make_root_with_ps1(tmp.path());
-        let cmd = build(
-            &root,
-            Some(Path::new("C:\\ProgramData\\scoop")),
-            &["install".into(), "git".into(), "--global".into()],
-        )
-        .unwrap();
+        let cmd = build(&root, &["install".into(), "git".into()]).unwrap();
         assert_eq!(cmd.program, "powershell.exe");
-        assert!(cmd.display.contains("scoop install git --global"));
+        assert!(cmd.display.contains("scoop install git"));
         assert!(cmd.envs.contains(&("SCOOP".into(), root.display().to_string())));
-        assert!(cmd.envs.contains(&("SCOOP_GLOBAL".into(), "C:\\ProgramData\\scoop".into())));
+        assert!(!cmd.envs.iter().any(|(k, _)| k == "SCOOP_GLOBAL"));
         let script = cmd.args.last().unwrap();
         assert!(script.contains("scoop.ps1"));
-        assert!(script.contains("'install' 'git' '--global'"));
+        assert!(script.contains("'install' 'git'"));
     }
 
     #[test]
     fn build_rejects_missing_ps1() {
         let tmp = tempfile::tempdir().unwrap();
-        let err = build(tmp.path(), None, &["list".into()]).unwrap_err();
+        let err = build(tmp.path(), &["list".into()]).unwrap_err();
         assert!(matches!(err, AppError::MissingScoopScript(_)));
     }
 

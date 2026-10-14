@@ -156,7 +156,7 @@ pub fn create(
             bucket: a.bucket.clone(),
             version: a.version.clone(),
             hold: a.hold,
-            global: a.global,
+            global: false,
         })
         .collect();
     std::fs::write(target.join("apps.json"), serde_json::to_string_pretty(&snapshot_apps)?)?;
@@ -237,7 +237,7 @@ pub fn plan(
         }
     }
     let app_key = |name: &str, global: bool| (lower(name), global);
-    let current_keys: Vec<(String, bool)> = current_apps.iter().map(|a| app_key(&a.name, a.global)).collect();
+    let current_keys: Vec<(String, bool)> = current_apps.iter().map(|a| app_key(&a.name, false)).collect();
     apps.retain(|a| !current_keys.contains(&app_key(&a.name, a.global)));
     apps.sort_by(|a, b| {
         a.name
@@ -337,7 +337,7 @@ mod tests {
         }
     }
 
-    fn app(name: &str, bucket: Option<&str>, version: &str, global: bool) -> InstalledApp {
+    fn app(name: &str, bucket: Option<&str>, version: &str) -> InstalledApp {
         InstalledApp {
             name: name.to_string(),
             version: version.to_string(),
@@ -352,7 +352,6 @@ mod tests {
             persist: vec![],
             bin: vec![],
             app_dir: format!("C:\\scoop\\apps\\{name}"),
-            global,
         }
     }
 
@@ -386,7 +385,7 @@ mod tests {
             &root,
             &config,
             &[bucket("main", Some("https://github.com/ScoopInstaller/Main"))],
-            &[app("git", Some("main"), "2.55.0.5", false), app("7zip", Some("main"), "26.00", true)],
+            &[app("git", Some("main"), "2.55.0.5"), app("7zip", Some("main"), "26.00")],
             &profiles,
         )
         .unwrap();
@@ -409,7 +408,7 @@ mod tests {
         assert_eq!(buckets[0].source.as_deref(), Some("https://github.com/ScoopInstaller/Main"));
         let apps = load_apps(&dir, &summary.id).unwrap();
         assert_eq!(apps.len(), 2);
-        assert!(apps.iter().any(|a| a.name == "7zip" && a.global));
+        assert!(apps.iter().any(|a| a.name == "7zip"));
     }
 
     #[test]
@@ -461,8 +460,8 @@ mod tests {
                 bucket("extras", Some("https://gitee.com/scoop-installer/Extras")),
             ],
             &[
-                app("git", Some("main"), "2.55.0.5", false),
-                app("7zip", Some("main"), "26.00", true),
+                app("git", Some("main"), "2.55.0.5"),
+                app("7zip", Some("main"), "26.00"),
             ],
             &t.path().join("none"),
         )
@@ -471,7 +470,7 @@ mod tests {
             bucket("main", Some("https://github.com/ScoopInstaller/Main")),
             bucket("java", None),
         ];
-        let current_apps = vec![app("git", Some("main"), "2.55.0.5", false)];
+        let current_apps = vec![app("git", Some("main"), "2.55.0.5")];
         let p = plan(&dir, &s.id, &root, &config, &current_buckets, &current_apps).unwrap();
         assert!(p.root_matches);
         assert!(p.config_present);
@@ -479,7 +478,7 @@ mod tests {
         assert_eq!(p.reset_buckets.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(), vec!["main"]);
         assert_eq!(p.missing_buckets.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(), vec!["extras"]);
         assert_eq!(p.missing_apps.len(), 1);
-        assert!(p.missing_apps[0].global);
+        assert!(!p.missing_apps[0].global);
         assert_eq!(p.missing_apps[0].name, "7zip");
     }
 

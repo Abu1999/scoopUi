@@ -30,7 +30,7 @@ pub fn save_profile_from_current(state: State<'_, AppState>, name: String) -> Re
         return Err(AppError::Other(format!("配置集已存在: {name}")));
     }
     let bucket_list = buckets::scan(&root.join("buckets"));
-    let apps = scan_installed(&ctx, &root);
+    let apps = scan_installed(&root);
     let config_path = configfile::resolve(&root, &ctx.user_config_home).path;
     let config = configfile::load(&config_path);
     let profile = profiles::snapshot(&name, &bucket_list, &apps, &config);
@@ -82,7 +82,7 @@ pub fn profile_diff(state: State<'_, AppState>, name: String) -> Result<ProfileD
     let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let profile = profiles::load(&paths::profiles_dir(&ctx.appdata), &name)?;
     let bucket_list = buckets::scan(&root.join("buckets"));
-    let apps = scan_installed(&ctx, &root);
+    let apps = scan_installed(&root);
     let config_path = configfile::resolve(&root, &ctx.user_config_home).path;
     let config = configfile::load(&config_path);
     Ok(profiles::diff(&profile, &bucket_list, &apps, &config))

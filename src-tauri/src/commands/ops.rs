@@ -3,7 +3,6 @@ use tauri::{AppHandle, State};
 use crate::commands::runner::spawn_task;
 use crate::commands::{context, roots::resolve_scoop_dir};
 use crate::domain::postinstall;
-use crate::domain::root;
 use crate::domain::scoopops;
 use crate::error::AppError;
 use crate::state::AppState;
@@ -15,10 +14,9 @@ pub fn install_package(
     name: String,
     bucket: Option<String>,
     version: Option<String>,
-    global: bool,
     task_id: String,
 ) -> Result<(), AppError> {
-    let args = scoopops::install_args(&name, bucket.as_deref(), version.as_deref(), global)?;
+    let args = scoopops::install_args(&name, bucket.as_deref(), version.as_deref())?;
     spawn_task(&app, &state, args, task_id)
 }
 
@@ -27,11 +25,10 @@ pub fn uninstall_package(
     app: AppHandle,
     state: State<'_, AppState>,
     name: String,
-    global: bool,
     purge: bool,
     task_id: String,
 ) -> Result<(), AppError> {
-    let args = scoopops::uninstall_args(&name, global, purge)?;
+    let args = scoopops::uninstall_args(&name, purge)?;
     spawn_task(&app, &state, args, task_id)
 }
 
@@ -41,10 +38,9 @@ pub fn update_package(
     state: State<'_, AppState>,
     name: Option<String>,
     all: bool,
-    global: bool,
     task_id: String,
 ) -> Result<(), AppError> {
-    let args = scoopops::update_args(name.as_deref(), all, global)?;
+    let args = scoopops::update_args(name.as_deref(), all)?;
     spawn_task(&app, &state, args, task_id)
 }
 
@@ -54,10 +50,9 @@ pub fn set_hold(
     state: State<'_, AppState>,
     name: String,
     hold: bool,
-    global: bool,
     task_id: String,
 ) -> Result<(), AppError> {
-    let args = scoopops::hold_args(&name, hold, global)?;
+    let args = scoopops::hold_args(&name, hold)?;
     spawn_task(&app, &state, args, task_id)
 }
 
@@ -99,15 +94,9 @@ pub fn run_maintenance(
 pub fn register_app_install(
     state: State<'_, AppState>,
     name: String,
-    global: bool,
 ) -> Result<Vec<String>, AppError> {
     let ctx = context();
     let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
-    let apps_base = if global {
-        root::global_dir(ctx.env_global.clone(), ctx.config_global_path(), &ctx.program_data).join("apps")
-    } else {
-        root.join("apps")
-    };
-    let dir = apps_base.join(&name).join("current");
+    let dir = root.join("apps").join(&name).join("current");
     postinstall::register(&dir, &name)
 }

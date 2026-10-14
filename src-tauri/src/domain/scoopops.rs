@@ -22,7 +22,6 @@ pub fn install_args(
     name: &str,
     bucket: Option<&str>,
     version: Option<&str>,
-    global: bool,
 ) -> Result<Vec<String>, AppError> {
     let name = require(name, "应用名")?;
     let bucket = optional(bucket, "软件源名称")?;
@@ -33,57 +32,36 @@ pub fn install_args(
         (None, Some(ver)) => format!("{name}@{ver}"),
         (None, None) => name,
     };
-    let mut args = vec!["install".to_string(), target];
-    if global {
-        args.push("-g".to_string());
-    }
-    Ok(args)
+    Ok(vec!["install".to_string(), target])
 }
 
-pub fn uninstall_args(name: &str, global: bool, purge: bool) -> Result<Vec<String>, AppError> {
+pub fn uninstall_args(name: &str, purge: bool) -> Result<Vec<String>, AppError> {
     let name = require(name, "应用名")?;
     let mut args = vec!["uninstall".to_string(), name];
-    if global {
-        args.push("-g".to_string());
-    }
     if purge {
         args.push("-p".to_string());
     }
     Ok(args)
 }
 
-pub fn update_args(name: Option<&str>, all: bool, global: bool) -> Result<Vec<String>, AppError> {
+pub fn update_args(name: Option<&str>, all: bool) -> Result<Vec<String>, AppError> {
     let name = optional(name, "应用名")?;
     if all && name.is_some() {
         return Err(AppError::Other("不能同时指定 --all 与应用名".to_string()));
     }
-    if global && name.is_none() && !all {
-        return Err(AppError::Other("--global 需要指定应用名".to_string()));
-    }
     if all {
-        let mut args = vec!["update".to_string(), "-a".to_string()];
-        if global {
-            args.push("-g".to_string());
-        }
-        return Ok(args);
+        return Ok(vec!["update".to_string(), "-a".to_string()]);
     }
     let mut args = vec!["update".to_string()];
     if let Some(name) = name {
         args.push(name);
-        if global {
-            args.push("-g".to_string());
-        }
     }
     Ok(args)
 }
 
-pub fn hold_args(name: &str, hold: bool, global: bool) -> Result<Vec<String>, AppError> {
+pub fn hold_args(name: &str, hold: bool) -> Result<Vec<String>, AppError> {
     let name = require(name, "应用名")?;
-    let mut args = vec![if hold { "hold" } else { "unhold" }.to_string(), name];
-    if global {
-        args.push("-g".to_string());
-    }
-    Ok(args)
+    Ok(vec![if hold { "hold" } else { "unhold" }.to_string(), name])
 }
 
 pub fn bucket_add_args(name: &str, repo: Option<&str>) -> Result<Vec<String>, AppError> {
@@ -103,7 +81,6 @@ pub fn bucket_remove_args(name: &str) -> Result<Vec<String>, AppError> {
 pub fn maintenance_args(op: &str) -> Result<Vec<String>, AppError> {
     let args: Vec<&str> = match op {
         "cleanup_all" => vec!["cleanup", "-a"],
-        "cleanup_global" => vec!["cleanup", "-a", "-g"],
         "cache_rm_all" => vec!["cache", "rm", "-a"],
         "checkup" => vec!["checkup"],
         "reset_all" => vec!["reset", "-a"],
@@ -139,48 +116,49 @@ mod tests {
     }
 
     #[test]
-    fn install_composes_bucket_version_and_flag() {
-        assert_eq!(install_args("git", None, None, false).unwrap(), v(&["install", "git"]));
-        assert_eq!(install_args("git", Some("main"), None, true).unwrap(), v(&["install", "main/git", "-g"]));
-        assert_eq!(install_args("gh", None, Some("2.7.0"), false).unwrap(), v(&["install", "gh@2.7.0"]));
+    fn install_composes_bucket_and_version() {
+        assert_eq!(install_args("git", None, None).unwrap(), v(&["install", "git"]));
+        assert_eq!(install_args("git", Some("main"), None).unwrap(), v(&["install", "main/git"]));
+        assert_eq!(install_args("gh", None, Some("2.7.0")).unwrap(), v(&["install", "gh@2.7.0"]));
         assert_eq!(
-            install_args("gh", Some("main"), Some("2.7.0"), false).unwrap(),
+            install_args("gh", Some("main"), Some("2.7.0")).unwrap(),
             v(&["install", "main/gh@2.7.0"])
         );
     }
 
     #[test]
+    fn install_args_never_adds_global_flag() {
+        assert_eq!(install_args("git", None, None).unwrap(), vec!["install", "git"]);
+    }
+
+    #[test]
     fn install_blank_optionals_ignored_blank_name_rejected() {
-        assert_eq!(install_args("git", Some("  "), Some(""), false).unwrap(), v(&["install", "git"]));
-        assert!(install_args("   ", None, None, false).is_err());
-        assert!(install_args("git bash", None, None, false).is_err());
+        assert_eq!(install_args("git", Some("  "), Some("")).unwrap(), v(&["install", "git"]));
+        assert!(install_args("   ", None, None).is_err());
+        assert!(install_args("git bash", None, None).is_err());
     }
 
     #[test]
     fn uninstall_flags() {
-        assert_eq!(uninstall_args("git", false, false).unwrap(), v(&["uninstall", "git"]));
-        assert_eq!(uninstall_args("git", true, true).unwrap(), v(&["uninstall", "git", "-g", "-p"]));
+        assert_eq!(uninstall_args("git", false).unwrap(), v(&["uninstall", "git"]));
+        assert_eq!(uninstall_args("git", true).unwrap(), v(&["uninstall", "git", "-p"]));
     }
 
     #[test]
     fn update_variants_and_validation() {
-        assert_eq!(update_args(None, false, false).unwrap(), v(&["update"]));
-        assert_eq!(update_args(Some("git"), false, false).unwrap(), v(&["update", "git"]));
-        assert_eq!(update_args(Some("git"), false, true).unwrap(), v(&["update", "git", "-g"]));
-        assert_eq!(update_args(None, true, false).unwrap(), v(&["update", "-a"]));
-        assert!(update_args(Some("git"), true, false).is_err());
-        assert!(update_args(None, false, true).is_err());
-        assert_eq!(update_args(None, true, true).unwrap(), v(&["update", "-a", "-g"]));
-        assert_eq!(update_args(Some("   "), false, false).unwrap(), v(&["update"]));
-        assert_eq!(update_args(Some("   "), true, false).unwrap(), v(&["update", "-a"]));
-        assert!(update_args(Some("   "), false, true).is_err());
+        assert_eq!(update_args(None, false).unwrap(), v(&["update"]));
+        assert_eq!(update_args(Some("git"), false).unwrap(), v(&["update", "git"]));
+        assert_eq!(update_args(None, true).unwrap(), v(&["update", "-a"]));
+        assert!(update_args(Some("git"), true).is_err());
+        assert_eq!(update_args(Some("   "), false).unwrap(), v(&["update"]));
+        assert_eq!(update_args(Some("   "), true).unwrap(), v(&["update", "-a"]));
     }
 
     #[test]
     fn hold_and_unhold() {
-        assert_eq!(hold_args("git", true, false).unwrap(), v(&["hold", "git"]));
-        assert_eq!(hold_args("git", false, true).unwrap(), v(&["unhold", "git", "-g"]));
-        assert!(hold_args("", true, false).is_err());
+        assert_eq!(hold_args("git", true).unwrap(), v(&["hold", "git"]));
+        assert_eq!(hold_args("git", false).unwrap(), v(&["unhold", "git"]));
+        assert!(hold_args("", true).is_err());
     }
 
     #[test]
@@ -205,20 +183,20 @@ mod tests {
 
     #[test]
     fn rejects_values_starting_with_dash() {
-        assert!(install_args("-g", None, None, false).is_err());
-        assert!(install_args("git", Some("--all"), None, false).is_err());
-        assert!(install_args("git", None, Some("-x"), false).is_err());
-        assert!(update_args(Some("-a"), false, false).is_err());
-        assert!(hold_args("--global", true, false).is_err());
+        assert!(install_args("-g", None, None).is_err());
+        assert!(install_args("git", Some("--all"), None).is_err());
+        assert!(install_args("git", None, Some("-x")).is_err());
+        assert!(update_args(Some("-a"), false).is_err());
+        assert!(hold_args("--global", true).is_err());
         assert!(bucket_add_args("-x", None).is_err());
         assert!(bucket_remove_args("-x").is_err());
-        assert!(uninstall_args("-p", false, false).is_err());
+        assert!(uninstall_args("-p", false).is_err());
     }
 
     #[test]
     fn maintenance_mapping_and_unknown() {
         assert_eq!(maintenance_args("cleanup_all").unwrap(), v(&["cleanup", "-a"]));
-        assert_eq!(maintenance_args("cleanup_global").unwrap(), v(&["cleanup", "-a", "-g"]));
+        assert!(maintenance_args("cleanup_global").is_err());
         assert_eq!(maintenance_args("cache_rm_all").unwrap(), v(&["cache", "rm", "-a"]));
         assert_eq!(maintenance_args("checkup").unwrap(), v(&["checkup"]));
         assert_eq!(maintenance_args("reset_all").unwrap(), v(&["reset", "-a"]));

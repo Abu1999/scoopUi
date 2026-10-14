@@ -12,6 +12,6 @@ pub async fn list_updates(state: State<'_, AppState>) -> Result<Vec<UpdateInfo>,
     let ctx = context();
     let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let entries = load_index(&state, &root).await?;
-    let apps = scan_installed(&ctx, &root);
+    let apps = scan_installed(&root);
     Ok(updates::compute(&apps, &entries))
 }

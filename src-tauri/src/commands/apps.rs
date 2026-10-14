@@ -9,5 +9,5 @@ use crate::state::AppState;
 pub fn list_installed_apps(state: State<'_, AppState>) -> Result<Vec<InstalledApp>, AppError> {
     let ctx = context();
     let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
-    Ok(scan_installed(&ctx, &root))
+    Ok(scan_installed(&root))
 }

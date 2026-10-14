@@ -259,7 +259,7 @@ pub fn snapshot(
             .map(|a| ProfileApp {
                 name: a.name.clone(),
                 bucket: a.bucket.clone(),
-                global: a.global,
+                global: false,
             })
             .collect(),
         settings: whitelist_from(config),
@@ -404,7 +404,7 @@ pub fn diff(
         }
     }
     let app_key = |name: &str, global: bool| (lower(name), global);
-    let current_app_keys: Vec<(String, bool)> = apps.iter().map(|a| app_key(&a.name, a.global)).collect();
+    let current_app_keys: Vec<(String, bool)> = apps.iter().map(|a| app_key(&a.name, false)).collect();
     let mut missing_apps: Vec<ProfileApp> = profile
         .apps
         .iter()
@@ -414,11 +414,11 @@ pub fn diff(
     let profile_app_keys: Vec<(String, bool)> = profile.apps.iter().map(|a| app_key(&a.name, a.global)).collect();
     let mut extra_apps: Vec<ProfileApp> = apps
         .iter()
-        .filter(|a| !profile_app_keys.contains(&app_key(&a.name, a.global)))
+        .filter(|a| !profile_app_keys.contains(&app_key(&a.name, false)))
         .map(|a| ProfileApp {
             name: a.name.clone(),
             bucket: a.bucket.clone(),
-            global: a.global,
+            global: false,
         })
         .collect();
     let by_name = |a: &ProfileApp, b: &ProfileApp| {
@@ -463,7 +463,7 @@ mod tests {
     use crate::domain::buckets::BucketInfo;
     use crate::domain::installed::InstalledApp;
 
-    fn installed_app(name: &str, bucket: Option<&str>, global: bool) -> InstalledApp {
+    fn installed_app(name: &str, bucket: Option<&str>) -> InstalledApp {
         InstalledApp {
             name: name.to_string(),
             version: "1.0".to_string(),
@@ -478,7 +478,6 @@ mod tests {
             persist: vec![],
             bin: vec![],
             app_dir: format!("C:\\scoop\\apps\\{name}"),
-            global,
         }
     }
 
@@ -585,8 +584,8 @@ mod tests {
             manifest_count: 3,
         }];
         let apps = vec![
-            installed_app("git", Some("main"), false),
-            installed_app("7zip", None, true),
+            installed_app("git", Some("main")),
+            installed_app("7zip", None),
         ];
         let config = serde_json::json!({
             "url_proxy": "https://scoop.201704.xyz",
@@ -603,7 +602,7 @@ mod tests {
         assert_eq!(p.buckets[0].source.as_deref(), Some("https://github.com/ScoopInstaller/Main"));
         assert_eq!(p.apps.len(), 2);
         assert!(!p.apps[0].global);
-        assert!(p.apps[1].global);
+        assert!(!p.apps[1].global);
         assert_eq!(p.settings.get("url_proxy").and_then(|v| v.as_str()), Some("https://scoop.201704.xyz"));
         assert_eq!(p.settings.get("aria2-enabled").and_then(|v| v.as_bool()), Some(false));
         assert_eq!(p.settings.get("aria2-split").and_then(|v| v.as_u64()), Some(5));
@@ -702,7 +701,7 @@ mod tests {
                 ProfileApp {
                     name: "7zip".to_string(),
                     bucket: Some("main".to_string()),
-                    global: true,
+                    global: false,
                 },
             ],
             serde_json::json!({ "url_proxy": "https://scoop.201704.xyz" })
@@ -715,9 +714,9 @@ mod tests {
             bucket("java", None),
         ];
         let apps = vec![
-            installed_app("git", Some("main"), false),
-            installed_app("python", Some("main"), false),
-            installed_app("7zip", Some("main"), true),
+            installed_app("git", Some("main")),
+            installed_app("python", Some("main")),
+            installed_app("7zip", Some("main")),
         ];
         let d = diff(&profile, &buckets, &apps, &serde_json::json!({ "url_proxy": "https://old" }));
         assert_eq!(
@@ -752,7 +751,7 @@ mod tests {
             serde_json::Map::new(),
         );
         let buckets = vec![bucket("main", Some("https://gitee.com/scoop-installer/Main"))];
-        let apps = vec![installed_app("7zip", Some("main"), false)];
+        let apps = vec![installed_app("7zip", Some("main"))];
         let d = diff(&profile, &buckets, &apps, &serde_json::json!({}));
         assert_eq!(d.bucket_source_conflicts, vec!["main"]);
         assert_eq!(d.missing_apps.len(), 1);

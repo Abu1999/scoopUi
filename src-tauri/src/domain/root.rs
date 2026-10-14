@@ -46,7 +46,7 @@ pub fn info(path: &Path) -> RootInfo {
     RootInfo {
         path: path.display().to_string(),
         valid,
-        app_count: if valid { crate::domain::installed::scan(&path.join("apps"), false).len() } else { 0 },
+        app_count: if valid { crate::domain::installed::scan(&path.join("apps")).len() } else { 0 },
         bucket_count: if valid { count_dirs(&path.join("buckets")) } else { 0 },
         has_portable_config: path.join("config.json").is_file(),
     }

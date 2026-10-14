@@ -18,7 +18,6 @@ pub struct InstalledApp {
     pub persist: Vec<String>,
     pub bin: Vec<String>,
     pub app_dir: String,
-    pub global: bool,
 }
 
 #[derive(Deserialize, Default)]
@@ -29,7 +28,7 @@ struct InstallJson {
     updated: Option<String>,
 }
 
-pub fn scan(apps_dir: &Path, global: bool) -> Vec<InstalledApp> {
+pub fn scan(apps_dir: &Path) -> Vec<InstalledApp> {
     let mut apps: Vec<InstalledApp> = Vec::new();
     let Ok(entries) = std::fs::read_dir(apps_dir) else {
         return apps;
@@ -69,7 +68,6 @@ pub fn scan(apps_dir: &Path, global: bool) -> Vec<InstalledApp> {
             persist: m.persist,
             bin: m.bin,
             app_dir: dir.display().to_string(),
-            global,
         });
     }
     apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -100,7 +98,7 @@ mod tests {
         write_app(apps, "scoop", r#"{"version":"0.5.3"}"#, None);
         std::fs::create_dir_all(apps.join("orphan")).unwrap();
 
-        let list = scan(apps, false);
+        let list = scan(apps);
         let names: Vec<&str> = list.iter().map(|a| a.name.as_str()).collect();
         assert_eq!(names, vec!["7zip", "git"]);
         let git = &list[1];
@@ -119,7 +117,7 @@ mod tests {
             r#"{"version":"3.13.1","depends":["aria2"],"persist":"data"}"#,
             Some(r#"{"bucket":"main","hold":true,"updated":"2026-09-11T17:35:18Z"}"#),
         );
-        let list = scan(tmp.path(), false);
+        let list = scan(tmp.path());
         assert_eq!(list.len(), 1);
         assert!(list[0].hold);
         assert_eq!(list[0].updated.as_deref(), Some("2026-09-11T17:35:18Z"));
@@ -130,16 +128,15 @@ mod tests {
     #[test]
     fn missing_apps_dir_returns_empty() {
         let tmp = tempfile::tempdir().unwrap();
-        assert!(scan(&tmp.path().join("nope"), false).is_empty());
+        assert!(scan(&tmp.path().join("nope")).is_empty());
     }
 
     #[test]
-    fn marks_global_scan() {
+    fn scan_returns_apps_without_global_flag() {
         let tmp = tempfile::tempdir().unwrap();
         write_app(tmp.path(), "git", r#"{"version":"1.0"}"#, Some(r#"{"bucket":"main"}"#));
-        let local = scan(tmp.path(), false);
-        assert!(!local[0].global);
-        let global = scan(tmp.path(), true);
-        assert!(global[0].global);
+        let apps = scan(tmp.path());
+        assert_eq!(apps.len(), 1);
+        assert_eq!(apps[0].name, "git");
     }
 }

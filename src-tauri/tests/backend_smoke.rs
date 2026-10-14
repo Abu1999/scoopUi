@@ -19,7 +19,7 @@ fn scans_real_environment() {
         eprintln!("skip: 本机无有效 scoop 根目录");
         return;
     };
-    let apps = installed::scan(&root_path.join("apps"), false);
+    let apps = installed::scan(&root_path.join("apps"));
     println!("app_count={}", apps.len());
     assert!(!apps.is_empty(), "应至少扫出一个已装应用");
     assert!(apps.iter().all(|a| !a.version.is_empty()));
@@ -42,7 +42,7 @@ fn runs_real_scoop_version() {
         eprintln!("skip: 本机无有效 scoop 根目录");
         return;
     };
-    let cmd = scoopcmd::build(&root_path, None, &["--version".to_string()]).unwrap();
+    let cmd = scoopcmd::build(&root_path, &["--version".to_string()]).unwrap();
     let child = scoopcmd::spawn(&cmd).unwrap();
     let lines = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
     let sink = lines.clone();

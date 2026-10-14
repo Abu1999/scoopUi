@@ -16,11 +16,7 @@ fn known_roots(ctx: &crate::commands::Context, active: Option<&PathBuf>) -> Vec<
     if let Some(active) = active {
         roots.push(active.clone());
     }
-    roots.push(crate::domain::root::global_dir(
-        ctx.env_global.clone(),
-        ctx.config_global_path(),
-        &ctx.program_data,
-    ));
+    roots.push(ctx.global_dir());
     roots
 }
 

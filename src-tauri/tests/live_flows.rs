@@ -30,7 +30,7 @@ fn global_root() -> Option<PathBuf> {
 
 fn run_scoop(root_path: &Path, args: &[&str]) -> Option<i32> {
     let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
-    let cmd = scoopcmd::build(root_path, None, &args).ok()?;
+    let cmd = scoopcmd::build(root_path, &args).ok()?;
     println!("$ scoop {}", args.join(" "));
     let child = scoopcmd::spawn(&cmd).ok()?;
     let lines = Arc::new(Mutex::new(Vec::<String>::new()));
@@ -49,7 +49,7 @@ fn live_7zip_snapshot_uninstall_restore_flow() {
         eprintln!("skip: 本机无有效 scoop 根目录");
         return;
     };
-    let apps = installed::scan(&rp.join("apps"), false);
+    let apps = installed::scan(&rp.join("apps"));
     assert!(
         apps.iter().any(|a| a.name == "7zip"),
         "需要用户级 7zip 已安装"
@@ -75,7 +75,7 @@ fn live_7zip_snapshot_uninstall_restore_flow() {
 
     let code = run_scoop(&rp, &["uninstall", "7zip"]);
     assert_eq!(code, Some(0), "卸载 7zip 应成功");
-    let after = installed::scan(&rp.join("apps"), false);
+    let after = installed::scan(&rp.join("apps"));
     assert!(!after.iter().any(|a| a.name == "7zip"), "7zip 应已卸载");
 
     let plan = snapshots::plan(
@@ -98,7 +98,7 @@ fn live_7zip_snapshot_uninstall_restore_flow() {
 
     let code = run_scoop(&rp, &["install", "7zip"]);
     assert_eq!(code, Some(0), "重装 7zip 应成功");
-    let restored = installed::scan(&rp.join("apps"), false);
+    let restored = installed::scan(&rp.join("apps"));
     assert!(restored.iter().any(|a| a.name == "7zip"), "7zip 应已恢复");
 
     let plan2 = snapshots::plan(

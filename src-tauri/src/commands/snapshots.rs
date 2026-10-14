@@ -26,7 +26,7 @@ pub fn create_snapshot(state: State<'_, AppState>) -> Result<SnapshotSummary, Ap
     let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let config_path = configfile::resolve(&root, &ctx.user_config_home).path;
     let bucket_list = buckets::scan(&root.join("buckets"));
-    let apps = scan_installed(&ctx, &root);
+    let apps = scan_installed(&root);
     snapshots::create(
         &snapshots_dir(&ctx),
         &root,
@@ -49,7 +49,7 @@ pub fn restore_snapshot_plan(state: State<'_, AppState>, id: String) -> Result<R
     let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let config_path = configfile::resolve(&root, &ctx.user_config_home).path;
     let bucket_list = buckets::scan(&root.join("buckets"));
-    let apps = scan_installed(&ctx, &root);
+    let apps = scan_installed(&root);
     snapshots::plan(&snapshots_dir(&ctx), &id, &root, &config_path, &bucket_list, &apps)
 }
 

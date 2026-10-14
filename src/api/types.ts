@@ -165,38 +165,6 @@ export interface ProfileDiff {
   settings: SettingDiff[];
 }
 
-export interface SnapshotSummary {
-  id: string;
-  created: number;
-  root: string;
-  app_count: number;
-  bucket_count: number;
-  profile_count: number;
-}
-
-export interface SnapshotApp {
-  name: string;
-  bucket: string | null;
-  version: string;
-  hold: boolean;
-}
-
-export interface RestorePlan {
-  root: string;
-  root_matches: boolean;
-  config_path: string;
-  config_present: boolean;
-  reset_buckets: BucketRef[];
-  missing_buckets: BucketRef[];
-  missing_apps: SnapshotApp[];
-}
-
-export interface RestoreBucketsResult {
-  reset: string[];
-  missing: BucketRef[];
-  skipped: string[];
-}
-
 export interface RegistryApp {
   key_path: string;
   name: string;

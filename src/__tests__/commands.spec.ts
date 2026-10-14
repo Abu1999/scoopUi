@@ -9,9 +9,7 @@ import {
   bucketAdd,
   bucketRemove,
   cancelTask,
-  createSnapshot,
   deleteProfile,
-  deleteSnapshot,
   exportProfile,
   fetchIcon,
   getAppSettings,
@@ -25,7 +23,6 @@ import {
   listInstalledApps,
   listKnownBuckets,
   listProfiles,
-  listSnapshots,
   listUpdates,
   matchRegistryApps,
   moveScoopDir,
@@ -39,9 +36,6 @@ import {
   getScoopBundleInfo,
   installScoopOnline,
   renameProfile,
-  restoreSnapshotBuckets,
-  restoreSnapshotConfig,
-  restoreSnapshotPlan,
   runMaintenance,
   runRegistryUninstall,
   runScoop,
@@ -212,26 +206,6 @@ describe("commands 包装", () => {
     expect(invokeMock).toHaveBeenLastCalledWith("apply_profile_settings", {
       settings: { url_proxy: "https://p" },
     });
-  });
-
-  it("M5b 快照命令名与参数符合后端契约", async () => {
-    await listSnapshots();
-    expect(invokeMock).toHaveBeenLastCalledWith("list_snapshots", undefined);
-
-    await createSnapshot();
-    expect(invokeMock).toHaveBeenLastCalledWith("create_snapshot", undefined);
-
-    await deleteSnapshot("100");
-    expect(invokeMock).toHaveBeenLastCalledWith("delete_snapshot", { id: "100" });
-
-    await restoreSnapshotPlan("100");
-    expect(invokeMock).toHaveBeenLastCalledWith("restore_snapshot_plan", { id: "100" });
-
-    await restoreSnapshotConfig("100");
-    expect(invokeMock).toHaveBeenLastCalledWith("restore_snapshot_config", { id: "100" });
-
-    await restoreSnapshotBuckets("100");
-    expect(invokeMock).toHaveBeenLastCalledWith("restore_snapshot_buckets", { id: "100" });
   });
 
   it("M6 迁移命令名与参数符合后端契约", async () => {

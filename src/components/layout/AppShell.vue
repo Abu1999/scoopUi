@@ -11,7 +11,6 @@
         <MaintenancePage v-else-if="ui.activePage === 'maintenance'" />
         <MigratePage v-else-if="ui.activePage === 'migrate'" />
         <ProfilesPage v-else-if="ui.activePage === 'profiles'" />
-        <BackupPage v-else-if="ui.activePage === 'backup'" />
         <SettingsPage v-else-if="ui.activePage === 'settings'" />
         <PlaceholderPage v-else title="开发中" />
       </div>
@@ -31,7 +30,6 @@ import BucketsPage from "../../pages/BucketsPage.vue";
 import MaintenancePage from "../../pages/MaintenancePage.vue";
 import MigratePage from "../../pages/MigratePage.vue";
 import ProfilesPage from "../../pages/ProfilesPage.vue";
-import BackupPage from "../../pages/BackupPage.vue";
 import SettingsPage from "../../pages/SettingsPage.vue";
 import SetupPage from "../../pages/SetupPage.vue";
 import PlaceholderPage from "../../pages/PlaceholderPage.vue";

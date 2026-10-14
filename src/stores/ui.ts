@@ -7,7 +7,6 @@ export type PageId =
   | "maintenance"
   | "migrate"
   | "profiles"
-  | "backup"
   | "settings";
 
 export const useUiStore = defineStore("ui", {

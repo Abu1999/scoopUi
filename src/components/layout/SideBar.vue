@@ -20,7 +20,6 @@ const options: MenuOption[] = [
   { label: "维护", key: "maintenance" },
   { label: "环境迁移", key: "migrate" },
   { label: "配置集", key: "profiles" },
-  { label: "备份", key: "backup" },
   { label: "设置", key: "settings" },
 ];
 

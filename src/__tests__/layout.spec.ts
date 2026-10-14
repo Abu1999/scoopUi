@@ -44,18 +44,18 @@ const menuStub = {
 describe("布局", () => {
   beforeEach(() => setActivePinia(createPinia()));
 
-  it("侧边栏包含 8 个导航项且点击切换页面", async () => {
+  it("侧边栏包含 7 个导航项且点击切换页面", async () => {
     const wrapper = mount(SideBar, {
       global: { stubs: { Menu: menuStub } },
     });
-    const labels = ["已安装", "商店", "软件源管理", "维护", "环境迁移", "配置集", "备份", "设置"];
+    const labels = ["已安装", "商店", "软件源管理", "维护", "环境迁移", "配置集", "设置"];
     const text = wrapper.text();
     for (const label of labels) {
       expect(text).toContain(label);
     }
     const buttons = wrapper.findAll("button");
-    expect(buttons).toHaveLength(8);
-    await buttons[7].trigger("click");
+    expect(buttons).toHaveLength(7);
+    await buttons[6].trigger("click");
     expect(useUiStore().activePage).toBe("settings");
   });
 

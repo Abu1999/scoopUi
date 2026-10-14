@@ -13,11 +13,8 @@ import type {
   ProfileSummary,
   ProxyTest,
   RegistryApp,
-  RestoreBucketsResult,
-  RestorePlan,
   ScoopConfig,
   ScoopEnvInfo,
-  SnapshotSummary,
   UpdateInfo,
 } from "./types";
 import { invoke } from "./tauri";
@@ -85,13 +82,6 @@ export const deleteProfile = (name: string) => invoke<void>("delete_profile", { 
 export const profileDiff = (name: string) => invoke<ProfileDiff>("profile_diff", { name });
 export const applyProfileSettings = (settings: Record<string, unknown>) =>
   invoke<void>("apply_profile_settings", { settings });
-
-export const listSnapshots = () => invoke<SnapshotSummary[]>("list_snapshots");
-export const createSnapshot = () => invoke<SnapshotSummary>("create_snapshot");
-export const deleteSnapshot = (id: string) => invoke<void>("delete_snapshot", { id });
-export const restoreSnapshotPlan = (id: string) => invoke<RestorePlan>("restore_snapshot_plan", { id });
-export const restoreSnapshotConfig = (id: string) => invoke<void>("restore_snapshot_config", { id });
-export const restoreSnapshotBuckets = (id: string) => invoke<RestoreBucketsResult>("restore_snapshot_buckets", { id });
 
 export const scanInstalledRegistry = () => invoke<RegistryApp[]>("scan_installed_registry");
 export const matchRegistryApps = () => invoke<MigrationEntry[]>("match_registry_apps");

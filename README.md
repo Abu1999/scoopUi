@@ -1,4 +1,4 @@
-# ScoopUI
+# <img src="src-tauri/icons/128x128.png" width="42" alt="ScoopUI 图标"> ScoopUI
 
 为 [Scoop](https://scoop.sh) 包管理器打造的 Windows 桌面图形界面。
 

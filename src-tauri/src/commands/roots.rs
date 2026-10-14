@@ -162,6 +162,19 @@ fn copy_tree(src: &Path, dst: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
+fn strip_prefix_ci(path: &Path, prefix: &Path) -> Option<PathBuf> {
+    let mut comps = path.components();
+    for pc in prefix.components() {
+        let c = comps.next()?;
+        if !c.as_os_str().to_string_lossy().to_lowercase()
+            .eq(&pc.as_os_str().to_string_lossy().to_lowercase())
+        {
+            return None;
+        }
+    }
+    Some(comps.collect())
+}
+
 fn collect_current_junctions(root: &Path) -> Vec<(OsString, PathBuf)> {
     let mut links: Vec<(OsString, PathBuf)> = Vec::new();
     let apps = root.join("apps");
@@ -171,8 +184,8 @@ fn collect_current_junctions(root: &Path) -> Vec<(OsString, PathBuf)> {
         let Ok(meta) = std::fs::symlink_metadata(&current) else { continue };
         if !meta.file_type().is_symlink() { continue; }
         let Ok(target) = std::fs::read_link(&current) else { continue };
-        let Ok(rel) = target.strip_prefix(root) else { continue };
-        links.push((app.file_name(), rel.to_path_buf()));
+        let Some(rel) = strip_prefix_ci(&target, root) else { continue };
+        links.push((app.file_name(), rel));
     }
     links
 }
@@ -258,6 +271,52 @@ mod tests {
         assert!(link.starts_with(&dst));
     }
 
+    fn flip_case(path: &Path) -> PathBuf {
+        let flipped: String = path
+            .to_string_lossy()
+            .chars()
+            .map(|c| {
+                if c.is_ascii_uppercase() {
+                    c.to_ascii_lowercase()
+                } else if c.is_ascii_lowercase() {
+                    c.to_ascii_uppercase()
+                } else {
+                    c
+                }
+            })
+            .collect();
+        PathBuf::from(flipped)
+    }
+
+    #[test]
+    fn move_rebuilds_current_junctions_with_case_mismatched_target() {
+        let tmp = tempfile::tempdir().unwrap();
+        let ctx = make_ctx(tmp.path());
+        let state = AppState::default();
+        let src = make_root(tmp.path());
+        let version = src.join("apps").join("git").join("1.0.0");
+        std::fs::create_dir_all(&version).unwrap();
+        std::fs::write(version.join("manifest.json"), r#"{"version":"1.0"}"#).unwrap();
+        let flipped = flip_case(&version);
+        make_junction(&src.join("apps").join("git").join("current"), &flipped);
+        let before = std::fs::read_link(src.join("apps").join("git").join("current")).unwrap();
+        assert_ne!(before, version);
+        assert_eq!(root::normalized(&before), root::normalized(&version));
+        settings::save(&ctx.settings_dir(),
+            &settings::Settings { scoop_dir: Some(src.display().to_string()), theme: None }).unwrap();
+        *state.scoop_dir.lock().unwrap() = Some(src.clone());
+        let dst = tmp.path().join("moved").join("scoop");
+        move_scoop_dir_inner(&ctx, &state, &dst).unwrap();
+        assert!(!src.exists());
+        let manifest = std::fs::read_to_string(
+            dst.join("apps").join("git").join("current").join("manifest.json"),
+        ).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&manifest).unwrap();
+        assert_eq!(parsed["version"], "1.0");
+        let link = std::fs::read_link(dst.join("apps").join("git").join("current")).unwrap();
+        assert!(link.starts_with(&dst));
+    }
+
     #[test]
     fn resolve_reads_scoop_dir_and_caches() {
         let tmp = tempfile::tempdir().unwrap();
@@ -292,7 +351,13 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let ctx = make_ctx(tmp.path());
         let state = AppState::default();
+        #[cfg(windows)]
+        let _lock = crate::domain::bootstrap::marker_test_lock();
+        #[cfg(windows)]
+        let backup = crate::domain::bootstrap::MarkerBackup::capture_and_clear();
         assert!(resolve_scoop_dir(&ctx, &state).is_none());
+        #[cfg(windows)]
+        drop(backup);
     }
 
     #[test]

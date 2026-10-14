@@ -775,6 +775,84 @@ pub fn clear_scoop_dir() -> Result<(), AppError> {
 }
 
 #[cfg(test)]
+pub(crate) fn marker_test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+#[cfg(all(test, windows))]
+pub(crate) struct MarkerBackup {
+    scoop_dir: Option<String>,
+    boot_root: Option<String>,
+}
+
+#[cfg(all(test, windows))]
+impl MarkerBackup {
+    pub(crate) fn capture_and_clear() -> Self {
+        let scoop_dir = read_marker_value("ScoopDir");
+        let boot_root = read_marker_value("BootRoot");
+        let _ = clear_scoop_dir();
+        Self { scoop_dir, boot_root }
+    }
+}
+
+#[cfg(all(test, windows))]
+impl Drop for MarkerBackup {
+    fn drop(&mut self) {
+        let _ = clear_scoop_dir();
+        if let Some(v) = &self.scoop_dir {
+            let _ = write_marker_value("ScoopDir", v);
+        }
+        if let Some(v) = &self.boot_root {
+            let _ = write_marker_value("BootRoot", v);
+        }
+    }
+}
+
+#[cfg(all(test, windows))]
+fn write_marker_value(value_name: &str, value: &str) -> Result<(), AppError> {
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegCreateKeyExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE,
+        REG_SZ,
+    };
+    let sub = wide_str("Software\\ScoopUI");
+    let name = wide_str(value_name);
+    unsafe {
+        let mut hkey: HKEY = std::ptr::null_mut();
+        let status = RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            sub.as_ptr(),
+            0,
+            std::ptr::null(),
+            0,
+            KEY_SET_VALUE,
+            std::ptr::null(),
+            &mut hkey,
+            std::ptr::null_mut(),
+        );
+        if status != 0 {
+            return Err(AppError::Other("无法创建注册表标记".to_string()));
+        }
+        let mut data: Vec<u16> = value.encode_utf16().collect();
+        data.push(0);
+        let bytes = std::slice::from_raw_parts(data.as_ptr().cast::<u8>(), data.len() * 2);
+        let status = RegSetValueExW(
+            hkey,
+            name.as_ptr(),
+            0,
+            REG_SZ,
+            bytes.as_ptr(),
+            bytes.len() as u32,
+        );
+        RegCloseKey(hkey);
+        if status != 0 {
+            return Err(AppError::Other("写入注册表标记失败".to_string()));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -982,10 +1060,16 @@ mod tests {
 
     #[test]
     fn scoop_dir_marker_roundtrip_and_legacy_clear() {
+        #[cfg(windows)]
+        let _lock = marker_test_lock();
+        #[cfg(windows)]
+        let backup = MarkerBackup::capture_and_clear();
         let tmp = tempfile::tempdir().unwrap();
         mark_scoop_dir(tmp.path()).unwrap();
         assert_eq!(read_scoop_dir().as_deref(), Some(tmp.path().display().to_string().as_str()));
         clear_scoop_dir().unwrap();
         assert!(read_scoop_dir().is_none());
+        #[cfg(windows)]
+        drop(backup);
     }
 }

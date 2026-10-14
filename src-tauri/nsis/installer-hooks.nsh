@@ -10,7 +10,7 @@
 
   MessageBox MB_YESNO|MB_ICONEXCLAMATION "检测到 Scoop 环境与数据：$\r$\n$0$\r$\n$\r$\n其中包含已安装的应用、缓存与持久化数据（不可恢复）。$\r$\n是否连同该目录一起删除？" IDNO scoopui_uninstall_done
 
-  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$$s = $\'$0\shims$\'.TrimEnd($\'\$\'); $$p = [Environment]::GetEnvironmentVariable($\'Path$\', $\'User$\'); $$n = (($$p -split $\';$\') | Where-Object { $$_.Trim() -ne $\'$\' -and $$_.Trim().TrimEnd($\'\$\') -ne $$s }) -join $\';$\'; [Environment]::SetEnvironmentVariable($\'Path$\', $$n, $\'User$\'); [Environment]::SetEnvironmentVariable($\'SCOOP$\', $$null, $\'User$\')"'
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$$s = $\'$0\shims$\'.TrimEnd($\'\$\'); $$p = [Environment]::GetEnvironmentVariable($\'Path$\', $\'User$\'); $$n = (($$p -split $\';$\') | Where-Object { $$_.Trim() -ne $\'$\' -and $$_.Trim().TrimEnd($\'\$\') -ne $$s }) -join $\';$\'; $$k = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($\'Environment$\', $$true); if ($$n) { $$k.SetValue($\'Path$\', $$n, [Microsoft.Win32.RegistryValueKind]::ExpandString) } else { $$k.DeleteValue($\'Path$\', $$false) }; $$k.Close(); [Environment]::SetEnvironmentVariable($\'SCOOP$\', $$null, $\'User$\')"'
 
   RMDir /r "$0"
   DeleteRegValue HKCU "Software\ScoopUI" "ScoopDir"

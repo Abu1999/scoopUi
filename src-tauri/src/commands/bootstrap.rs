@@ -18,8 +18,11 @@ pub struct FinalizeResult {
     pub warnings: Vec<String>,
 }
 
-fn default_dir(ctx: &crate::commands::Context) -> PathBuf {
-    ctx.home.join("scoop")
+fn default_dir() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("scoop")))
+        .unwrap_or_else(|| PathBuf::from("scoop"))
 }
 
 fn bundle_path(app: &AppHandle) -> Result<PathBuf, AppError> {
@@ -52,7 +55,7 @@ pub fn check_scoop_prereqs(
     dir: Option<String>,
 ) -> Result<PrereqReport, AppError> {
     let ctx = context();
-    let default = default_dir(&ctx);
+    let default = default_dir();
     let target = dir
         .map(PathBuf::from)
         .filter(|p| !p.as_os_str().is_empty())
@@ -86,12 +89,11 @@ pub fn finalize_scoop_bootstrap(dir: String, add_to_path: bool) -> Result<Finali
     let staging = bootstrap::staging_dir(&target);
     let count = bootstrap::finalize(&target, &staging)?;
     let mut warnings = Vec::new();
-    if crate::domain::root::normalized(&target)
-        != crate::domain::root::normalized(&default_dir(&ctx))
-    {
-        if let Err(e) = bootstrap::write_root_path_config(&ctx.user_config_home, &target) {
-            warnings.push(format!("写入 root_path 配置失败: {e}"));
-        }
+    if let Err(e) = crate::domain::bootstrap::set_user_env("SCOOP", &target.display().to_string()) {
+        warnings.push(format!("写入 SCOOP 环境变量失败：{e}"));
+    }
+    if let Err(e) = crate::domain::bootstrap::write_root_path_config(&ctx.user_config_home, &target) {
+        warnings.push(format!("写入 root_path 配置失败：{e}"));
     }
     let mut path_updated = false;
     if add_to_path {
@@ -149,4 +151,15 @@ pub fn install_scoop_online(
         display: "install scoop online".to_string(),
     };
     spawn_command(&app, &state, cmd, task_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_dir_is_next_to_executable() {
+        let d = default_dir();
+        assert_eq!(d.file_name().unwrap(), "scoop");
+    }
 }

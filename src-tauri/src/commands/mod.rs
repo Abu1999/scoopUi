@@ -19,7 +19,6 @@ use std::path::PathBuf;
 use crate::paths;
 
 pub struct Context {
-    pub home: PathBuf,
     pub appdata: PathBuf,
     pub local_appdata: PathBuf,
     pub program_data: PathBuf,
@@ -38,7 +37,7 @@ pub fn context() -> Context {
     let user_config_home = paths::user_config_home(&home);
     let env_global = std::env::var_os("SCOOP_GLOBAL").filter(|v| !v.is_empty()).map(PathBuf::from);
     let user_config = crate::domain::configfile::load(&user_config_home.join("scoop").join("config.json"));
-    Context { home, appdata, local_appdata, program_data, user_config_home, env_global, user_config }
+    Context { appdata, local_appdata, program_data, user_config_home, env_global, user_config }
 }
 
 impl Context {

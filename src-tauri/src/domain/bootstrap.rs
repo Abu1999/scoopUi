@@ -56,6 +56,19 @@ pub fn dir_acceptable(dir: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
+pub fn writable_probe(dir: &Path) -> Result<(), AppError> {
+    let mut probe = dir;
+    while !probe.exists() {
+        probe = probe
+            .parent()
+            .ok_or_else(|| AppError::Other("目标路径无效".to_string()))?;
+    }
+    let tmp = probe.join(format!(".scoopui-write-{}", std::process::id()));
+    std::fs::write(&tmp, b"ok")?;
+    let _ = std::fs::remove_file(&tmp);
+    Ok(())
+}
+
 pub fn staging_dir(dir: &Path) -> PathBuf {
     match dir.file_name() {
         Some(name) => {
@@ -298,7 +311,10 @@ pub fn assemble_report(
     probes: ProbeResults,
 ) -> PrereqReport {
     let (dir_ok, dir_reason) = match dir_acceptable(dir) {
-        Ok(()) => (true, None),
+        Ok(()) => match writable_probe(dir) {
+            Ok(()) => (true, None),
+            Err(e) => (false, Some(format!("目录不可写: {e}"))),
+        },
         Err(e) => (false, Some(e.to_string())),
     };
     PrereqReport {
@@ -773,6 +789,13 @@ mod tests {
         assert!(dir_acceptable(&missing).is_err());
         std::fs::write(tmp.path().join("file.txt"), "x").unwrap();
         assert!(dir_acceptable(&tmp.path().join("file.txt")).is_err());
+    }
+
+    #[test]
+    fn writable_probe_ok_for_tempdir_and_fails_for_missing_drive() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(writable_probe(&tmp.path().join("new")).is_ok());
+        assert!(writable_probe(Path::new("Z:\\nonexistent\\scoop")).is_err());
     }
 
     #[test]

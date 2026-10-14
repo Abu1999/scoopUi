@@ -212,7 +212,6 @@ mod tests {
 
     fn make_ctx(base: &Path) -> Context {
         Context {
-            home: base.join("home"),
             appdata: base.join("appdata"),
             local_appdata: base.join("localappdata"),
             program_data: base.join("programdata"),

@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use tauri::State;
@@ -76,20 +77,30 @@ pub fn move_scoop_dir_inner(ctx: &Context, state: &AppState, new_dir: &Path) -> 
     if new_dir.starts_with(&current) || current.starts_with(new_dir) {
         return Err(AppError::Other("目标目录不能与当前环境相互包含".to_string()));
     }
+    let junctions = collect_current_junctions(&current);
     if let Some(parent) = new_dir.parent() { std::fs::create_dir_all(parent)?; }
-    match std::fs::rename(&current, new_dir) {
-        Ok(_) => {}
+    let renamed = match std::fs::rename(&current, new_dir) {
+        Ok(_) => true,
         Err(_) => {
-            if let Err(e) = copy_tree(&current, new_dir)
-                .and_then(|_| rebuild_current_junctions(&current, new_dir))
-            {
+            if let Err(e) = copy_tree(&current, new_dir) {
                 let _ = std::fs::remove_dir_all(new_dir);
                 return Err(e);
             }
-            if let Err(e) = std::fs::remove_dir_all(&current) {
-                let _ = std::fs::remove_dir_all(new_dir);
-                return Err(AppError::Other(format!("源目录删除失败，已回滚：{e}")));
-            }
+            false
+        }
+    };
+    if let Err(e) = rebuild_current_junctions(&junctions, new_dir) {
+        if renamed {
+            let _ = std::fs::rename(new_dir, &current);
+        } else {
+            let _ = std::fs::remove_dir_all(new_dir);
+        }
+        return Err(e);
+    }
+    if !renamed {
+        if let Err(e) = std::fs::remove_dir_all(&current) {
+            let _ = std::fs::remove_dir_all(new_dir);
+            return Err(AppError::Other(format!("源目录删除失败，已回滚：{e}")));
         }
     }
     if root::validate(new_dir).is_err() {
@@ -151,22 +162,34 @@ fn copy_tree(src: &Path, dst: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
-fn rebuild_current_junctions(old_root: &Path, new_root: &Path) -> Result<(), AppError> {
-    use std::os::windows::process::CommandExt;
-    let apps = old_root.join("apps");
-    let Ok(entries) = std::fs::read_dir(&apps) else { return Ok(()) };
+fn collect_current_junctions(root: &Path) -> Vec<(OsString, PathBuf)> {
+    let mut links: Vec<(OsString, PathBuf)> = Vec::new();
+    let apps = root.join("apps");
+    let Ok(entries) = std::fs::read_dir(&apps) else { return links };
     for app in entries.flatten() {
-        let old_current = app.path().join("current");
-        let Ok(meta) = std::fs::symlink_metadata(&old_current) else { continue };
+        let current = app.path().join("current");
+        let Ok(meta) = std::fs::symlink_metadata(&current) else { continue };
         if !meta.file_type().is_symlink() { continue; }
-        let Ok(link_target) = std::fs::read_link(&old_current) else { continue };
-        let Ok(rel) = link_target.strip_prefix(old_root) else { continue };
-        let new_link = new_root.join("apps").join(app.file_name()).join("current");
+        let Ok(target) = std::fs::read_link(&current) else { continue };
+        let Ok(rel) = target.strip_prefix(root) else { continue };
+        links.push((app.file_name(), rel.to_path_buf()));
+    }
+    links
+}
+
+fn rebuild_current_junctions(links: &[(OsString, PathBuf)], new_root: &Path) -> Result<(), AppError> {
+    use std::os::windows::process::CommandExt;
+    for (app, rel) in links {
+        let new_link = new_root.join("apps").join(app).join("current");
         let new_target = new_root.join(rel);
-        if new_link.exists() { continue; }
+        if std::fs::symlink_metadata(&new_link).is_ok() {
+            std::fs::remove_dir(&new_link)?;
+        }
         let status = std::process::Command::new("cmd")
             .args(["/c", "mklink", "/J", &new_link.display().to_string(), &new_target.display().to_string()])
             .creation_flags(0x08000000)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .status();
         if status.map(|s| !s.success()).unwrap_or(true) {
             return Err(AppError::Other(format!("重建目录联接失败：{}", new_link.display())));
@@ -197,6 +220,43 @@ mod tests {
             env_global: None,
             user_config: serde_json::json!({}),
         }
+    }
+
+    fn make_junction(link: &Path, target: &Path) {
+        use std::os::windows::process::CommandExt;
+        let status = std::process::Command::new("cmd")
+            .args(["/c", "mklink", "/J", &link.display().to_string(), &target.display().to_string()])
+            .creation_flags(0x08000000)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    #[test]
+    fn move_rebuilds_current_junctions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let ctx = make_ctx(tmp.path());
+        let state = AppState::default();
+        let src = make_root(tmp.path());
+        let version = src.join("apps").join("git").join("1.0.0");
+        std::fs::create_dir_all(&version).unwrap();
+        std::fs::write(version.join("manifest.json"), r#"{"version":"1.0"}"#).unwrap();
+        make_junction(&src.join("apps").join("git").join("current"), &version);
+        settings::save(&ctx.settings_dir(),
+            &settings::Settings { scoop_dir: Some(src.display().to_string()), theme: None }).unwrap();
+        *state.scoop_dir.lock().unwrap() = Some(src.clone());
+        let dst = tmp.path().join("moved").join("scoop");
+        move_scoop_dir_inner(&ctx, &state, &dst).unwrap();
+        assert!(!src.exists());
+        let manifest = std::fs::read_to_string(
+            dst.join("apps").join("git").join("current").join("manifest.json"),
+        ).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&manifest).unwrap();
+        assert_eq!(parsed["version"], "1.0");
+        let link = std::fs::read_link(dst.join("apps").join("git").join("current")).unwrap();
+        assert!(link.starts_with(&dst));
     }
 
     #[test]

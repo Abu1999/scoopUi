@@ -2,7 +2,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use tauri::State;
 
-use crate::commands::{context, roots::resolve_active_root};
+use crate::commands::{context, roots::resolve_scoop_dir};
 use crate::domain::buckets;
 use crate::domain::configfile;
 use crate::domain::icons;
@@ -53,7 +53,7 @@ fn resolved_config_path(
     ctx: &crate::commands::Context,
     state: &AppState,
 ) -> Result<(std::path::PathBuf, std::path::PathBuf), AppError> {
-    let root = resolve_active_root(ctx, state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(ctx, state).ok_or(AppError::NoRoot)?;
     let resolved = configfile::resolve(&root, &ctx.user_config_home);
     Ok((root, resolved.path))
 }
@@ -129,7 +129,7 @@ pub async fn set_bucket_source(
     source: String,
 ) -> Result<String, AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     validate_bucket_name(&bucket)?;
     let dir = root.join("buckets").join(&bucket);
     if !dir.is_dir() {

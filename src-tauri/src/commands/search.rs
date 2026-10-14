@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::commands::context;
-use crate::commands::roots::resolve_active_root;
+use crate::commands::roots::resolve_scoop_dir;
 use crate::domain::index::{self, PackageEntry};
 use crate::error::AppError;
 use crate::state::{AppState, IndexCache};
@@ -48,7 +48,7 @@ pub async fn search_packages(
     limit: Option<usize>,
 ) -> Result<Vec<PackageEntry>, AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let entries = load_index(&state, &root).await?;
     Ok(index::search(&entries, &query, limit.unwrap_or(50)))
 }
@@ -58,7 +58,7 @@ pub async fn refresh_package_index(
     state: State<'_, AppState>,
 ) -> Result<usize, AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let build_root = root.clone();
     let built = tauri::async_runtime::spawn_blocking(move || {
         Arc::new(index::build(&build_root.join("buckets")))

@@ -6,11 +6,16 @@ use crate::error::AppError;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
-    pub known_roots: Vec<String>,
-    #[serde(default)]
-    pub active_root: Option<String>,
+    pub scoop_dir: Option<String>,
     #[serde(default)]
     pub theme: Option<String>,
+}
+
+pub fn legacy_active_root(dir: &Path) -> Option<String> {
+    let text = std::fs::read_to_string(dir.join("settings.json")).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    value.get("active_root").and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty()).map(|s| s.to_string())
 }
 
 pub fn load(dir: &Path) -> Settings {
@@ -41,27 +46,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn roundtrip_preserves_values() {
+    fn roundtrip_preserves_scoop_dir() {
         let tmp = tempfile::tempdir().unwrap();
-        let s = Settings {
-            known_roots: vec!["C:\\scoop".into()],
-            active_root: Some("C:\\scoop".into()),
-            theme: None,
-        };
+        let s = Settings { scoop_dir: Some("D:\\ScoopUI\\scoop".into()), theme: None };
         save(tmp.path(), &s).unwrap();
-        let loaded = load(tmp.path());
-        assert_eq!(loaded.known_roots, vec!["C:\\scoop".to_string()]);
-        assert_eq!(loaded.active_root.as_deref(), Some("C:\\scoop"));
+        assert_eq!(load(tmp.path()).scoop_dir.as_deref(), Some("D:\\ScoopUI\\scoop"));
+    }
+
+    #[test]
+    fn legacy_active_root_reads_old_field() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("settings.json"),
+            r#"{"known_roots":["C:\\Users\\u\\scoop"],"active_root":"C:\\Users\\u\\scoop","theme":"dark"}"#,
+        )
+        .unwrap();
+        assert_eq!(legacy_active_root(tmp.path()).as_deref(), Some("C:\\Users\\u\\scoop"));
+        assert_eq!(load(tmp.path()).theme.as_deref(), Some("dark"));
+    }
+
+    #[test]
+    fn legacy_active_root_ignores_missing_and_blank() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(legacy_active_root(tmp.path()).is_none());
+        std::fs::write(tmp.path().join("settings.json"), r#"{"active_root":"   "}"#).unwrap();
+        assert!(legacy_active_root(tmp.path()).is_none());
     }
 
     #[test]
     fn roundtrip_preserves_theme() {
         let tmp = tempfile::tempdir().unwrap();
-        let s = Settings {
-            known_roots: vec![],
-            active_root: None,
-            theme: Some("dark".to_string()),
-        };
+        let s = Settings { scoop_dir: None, theme: Some("dark".to_string()) };
         save(tmp.path(), &s).unwrap();
         assert_eq!(load(tmp.path()).theme.as_deref(), Some("dark"));
     }
@@ -69,9 +84,9 @@ mod tests {
     #[test]
     fn missing_or_corrupt_returns_default() {
         let tmp = tempfile::tempdir().unwrap();
-        assert!(load(tmp.path()).known_roots.is_empty());
+        assert!(load(tmp.path()).scoop_dir.is_none());
         std::fs::write(tmp.path().join("settings.json"), "{not json").unwrap();
-        assert!(load(tmp.path()).active_root.is_none());
+        assert!(load(tmp.path()).scoop_dir.is_none());
     }
 
     #[test]
@@ -87,8 +102,8 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("settings.json"), "{not json").unwrap();
         let loaded = load(tmp.path());
-        assert!(loaded.known_roots.is_empty());
-        assert!(loaded.active_root.is_none());
+        assert!(loaded.scoop_dir.is_none());
+        assert!(loaded.theme.is_none());
         let bak = std::fs::read_to_string(tmp.path().join("settings.json.bak")).unwrap();
         assert_eq!(bak, "{not json");
     }

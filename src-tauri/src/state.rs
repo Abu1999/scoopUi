@@ -11,7 +11,7 @@ pub struct IndexCache {
 
 #[derive(Default)]
 pub struct AppState {
-    pub active_root: Mutex<Option<PathBuf>>,
+    pub scoop_dir: Mutex<Option<PathBuf>>,
     pub tasks: Mutex<HashMap<String, u32>>,
     pub index: Mutex<Option<IndexCache>>,
 }

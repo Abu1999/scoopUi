@@ -1,7 +1,7 @@
 use tauri::State;
 
 use crate::commands::context;
-use crate::commands::roots::resolve_active_root;
+use crate::commands::roots::resolve_scoop_dir;
 use crate::domain::{configfile, icons};
 use crate::error::AppError;
 use crate::paths;
@@ -26,7 +26,7 @@ pub async fn fetch_icon(
 ) -> Result<Option<String>, AppError> {
     let ctx = context();
     let cache_dir = paths::icon_cache_dir(&ctx.local_appdata);
-    let proxy = resolve_active_root(&ctx, &state)
+    let proxy = resolve_scoop_dir(&ctx, &state)
         .map(|root| configfile::resolve(&root, &ctx.user_config_home))
         .and_then(|cfg| {
             configfile::load(&cfg.path)

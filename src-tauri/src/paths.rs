@@ -12,10 +12,6 @@ pub fn user_config_home(home: &Path) -> PathBuf {
     home.join(".config")
 }
 
-pub fn default_root(home: &Path) -> PathBuf {
-    home.join("scoop")
-}
-
 pub fn default_global_root(program_data: &Path) -> PathBuf {
     program_data.join("scoop")
 }
@@ -38,7 +34,6 @@ mod tests {
         assert_eq!(settings_dir(&base), PathBuf::from("C:\\Users\\u\\AppData\\Roaming\\scoopui"));
         assert_eq!(icon_cache_dir(&base), PathBuf::from("C:\\Users\\u\\AppData\\Roaming\\scoopui\\icons"));
         assert_eq!(user_config_home(Path::new("C:\\Users\\u")), PathBuf::from("C:\\Users\\u\\.config"));
-        assert_eq!(default_root(Path::new("C:\\Users\\u")), PathBuf::from("C:\\Users\\u\\scoop"));
         assert_eq!(default_global_root(Path::new("C:\\ProgramData")), PathBuf::from("C:\\ProgramData\\scoop"));
         assert_eq!(profiles_dir(&base), PathBuf::from("C:\\Users\\u\\AppData\\Roaming\\scoopui\\profiles"));
         assert_eq!(snapshots_dir(&base), PathBuf::from("C:\\Users\\u\\AppData\\Roaming\\scoopui\\snapshots"));

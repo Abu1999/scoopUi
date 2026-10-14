@@ -1,6 +1,6 @@
 use tauri::State;
 
-use crate::commands::{context, roots::resolve_active_root, scan_installed};
+use crate::commands::{context, roots::resolve_scoop_dir, scan_installed};
 use crate::domain::buckets;
 use crate::domain::configfile;
 use crate::domain::profiles::{self, Profile, ProfileDiff, ProfileSummary};
@@ -23,7 +23,7 @@ pub fn get_profile(name: String) -> Result<Profile, AppError> {
 #[tauri::command(async)]
 pub fn save_profile_from_current(state: State<'_, AppState>, name: String) -> Result<Profile, AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let dir = paths::profiles_dir(&ctx.appdata);
     profiles::validate_profile_name(&name)?;
     if profiles::exists(&dir, &name) {
@@ -79,7 +79,7 @@ pub fn delete_profile(name: String) -> Result<(), AppError> {
 #[tauri::command(async)]
 pub fn profile_diff(state: State<'_, AppState>, name: String) -> Result<ProfileDiff, AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let profile = profiles::load(&paths::profiles_dir(&ctx.appdata), &name)?;
     let bucket_list = buckets::scan(&root.join("buckets"));
     let apps = scan_installed(&ctx, &root);
@@ -94,7 +94,7 @@ pub fn apply_profile_settings(
     settings: serde_json::Map<String, serde_json::Value>,
 ) -> Result<(), AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let config_path = configfile::resolve(&root, &ctx.user_config_home).path;
     profiles::apply_settings(&config_path, &settings)
 }

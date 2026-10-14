@@ -14,10 +14,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(state::AppState::default())
         .invoke_handler(tauri::generate_handler![
-            commands::roots::detect_roots,
-            commands::roots::get_active_root,
-            commands::roots::set_active_root,
-            commands::roots::add_root,
+            commands::roots::get_scoop_env,
+            commands::roots::adopt_scoop_dir,
+            commands::roots::move_scoop_dir,
+            commands::roots::remove_scoop_env,
             commands::apps::list_installed_apps,
             commands::buckets::list_buckets,
             commands::buckets::list_known_buckets,
@@ -47,8 +47,6 @@ pub fn run() {
             commands::bootstrap::extract_scoop_bundle,
             commands::bootstrap::finalize_scoop_bootstrap,
             commands::bootstrap::install_scoop_online,
-            commands::bootstrap::get_boot_info,
-            commands::bootstrap::remove_bootstrapped_scoop,
             commands::profiles::list_profiles,
             commands::profiles::get_profile,
             commands::profiles::save_profile_from_current,

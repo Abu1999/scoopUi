@@ -1,7 +1,7 @@
 use serde::Serialize;
 use tauri::State;
 
-use crate::commands::{context, roots::resolve_active_root};
+use crate::commands::{context, roots::resolve_scoop_dir};
 use crate::domain::configfile;
 use crate::error::AppError;
 use crate::state::AppState;
@@ -16,7 +16,7 @@ pub struct ScoopConfig {
 #[tauri::command(async)]
 pub fn get_scoop_config(state: State<'_, AppState>) -> Result<ScoopConfig, AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let resolved = configfile::resolve(&root, &ctx.user_config_home);
     Ok(ScoopConfig {
         file_path: resolved.path.display().to_string(),

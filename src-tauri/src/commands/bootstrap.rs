@@ -1,15 +1,14 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
 use crate::commands::context;
-use crate::commands::roots::resolve_active_root;
+use crate::commands::roots::resolve_scoop_dir;
 use crate::commands::runner::spawn_command;
 use crate::domain::bootstrap::{self, BundleInfo, PrereqReport};
 use crate::domain::scoopcmd::ScoopCommand;
 use crate::error::AppError;
-use crate::settings;
 use crate::state::AppState;
 
 #[derive(Debug, Clone, Serialize)]
@@ -17,13 +16,6 @@ pub struct FinalizeResult {
     pub manifest_count: usize,
     pub path_updated: bool,
     pub warnings: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct BootInfo {
-    pub boot_root: Option<String>,
-    pub active_root: Option<String>,
-    pub active_is_boot: bool,
 }
 
 fn default_dir(ctx: &crate::commands::Context) -> PathBuf {
@@ -65,7 +57,7 @@ pub fn check_scoop_prereqs(
         .map(PathBuf::from)
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or_else(|| default.clone());
-    let existing = resolve_active_root(&ctx, &state);
+    let existing = resolve_scoop_dir(&ctx, &state);
     Ok(bootstrap::assemble_report(&target, &default, existing, bootstrap::probe()))
 }
 
@@ -119,61 +111,6 @@ pub fn finalize_scoop_bootstrap(dir: String, add_to_path: bool) -> Result<Finali
         path_updated,
         warnings,
     })
-}
-
-#[tauri::command(async)]
-pub fn get_boot_info(state: State<'_, AppState>) -> Result<BootInfo, AppError> {
-    let ctx = context();
-    let boot = bootstrap::read_scoop_dir();
-    let active = resolve_active_root(&ctx, &state).map(|p| p.display().to_string());
-    let active_is_boot = match (&boot, &active) {
-        (Some(b), Some(a)) => {
-            crate::domain::root::normalized(Path::new(a))
-                == crate::domain::root::normalized(Path::new(b))
-        }
-        _ => false,
-    };
-    Ok(BootInfo {
-        boot_root: boot,
-        active_root: active,
-        active_is_boot,
-    })
-}
-
-#[tauri::command(async)]
-pub fn remove_bootstrapped_scoop(state: State<'_, AppState>) -> Result<String, AppError> {
-    let ctx = context();
-    let boot = bootstrap::read_scoop_dir()
-        .ok_or_else(|| AppError::Other("未检测到由本应用初始化的 Scoop 环境".to_string()))?;
-    let target = PathBuf::from(&boot);
-    if !target.is_dir() {
-        bootstrap::clear_scoop_dir()?;
-        return Err(AppError::Other(format!("目录已不存在: {boot}")));
-    }
-    std::fs::remove_dir_all(&target)?;
-    let _ = bootstrap::remove_shims_from_user_path(&target.join("shims"));
-    let mut s = settings::load(&ctx.settings_dir());
-    s.known_roots
-        .retain(|r| crate::domain::root::normalized(Path::new(r)) != crate::domain::root::normalized(&target));
-    if s
-        .active_root
-        .as_deref()
-        .map(|a| crate::domain::root::normalized(Path::new(a)) == crate::domain::root::normalized(&target))
-        .unwrap_or(false)
-    {
-        s.active_root = None;
-    }
-    settings::save(&ctx.settings_dir(), &s)?;
-    let cached = state.active_root.lock().unwrap().clone();
-    if cached
-        .as_deref()
-        .map(|a| crate::domain::root::normalized(a) == crate::domain::root::normalized(&target))
-        .unwrap_or(false)
-    {
-        *state.active_root.lock().unwrap() = None;
-    }
-    bootstrap::clear_scoop_dir()?;
-    Ok(boot)
 }
 
 #[tauri::command(async)]

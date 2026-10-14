@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use tauri::State;
 
-use crate::commands::{context, roots::resolve_active_root, scan_installed};
+use crate::commands::{context, roots::resolve_scoop_dir, scan_installed};
 use crate::domain::buckets;
 use crate::domain::configfile;
 use crate::domain::snapshots::{self, RestoreBucketsResult, RestorePlan, SnapshotSummary};
@@ -23,7 +23,7 @@ pub fn list_snapshots() -> Result<Vec<SnapshotSummary>, AppError> {
 #[tauri::command(async)]
 pub fn create_snapshot(state: State<'_, AppState>) -> Result<SnapshotSummary, AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let config_path = configfile::resolve(&root, &ctx.user_config_home).path;
     let bucket_list = buckets::scan(&root.join("buckets"));
     let apps = scan_installed(&ctx, &root);
@@ -46,7 +46,7 @@ pub fn delete_snapshot(id: String) -> Result<(), AppError> {
 #[tauri::command(async)]
 pub fn restore_snapshot_plan(state: State<'_, AppState>, id: String) -> Result<RestorePlan, AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let config_path = configfile::resolve(&root, &ctx.user_config_home).path;
     let bucket_list = buckets::scan(&root.join("buckets"));
     let apps = scan_installed(&ctx, &root);
@@ -56,7 +56,7 @@ pub fn restore_snapshot_plan(state: State<'_, AppState>, id: String) -> Result<R
 #[tauri::command(async)]
 pub fn restore_snapshot_config(state: State<'_, AppState>, id: String) -> Result<(), AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let config_path = configfile::resolve(&root, &ctx.user_config_home).path;
     snapshots::restore_config(&snapshots_dir(&ctx), &id, &config_path)
 }
@@ -64,6 +64,6 @@ pub fn restore_snapshot_config(state: State<'_, AppState>, id: String) -> Result
 #[tauri::command(async)]
 pub fn restore_snapshot_buckets(state: State<'_, AppState>, id: String) -> Result<RestoreBucketsResult, AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     snapshots::restore_buckets(&snapshots_dir(&ctx), &id, &root)
 }

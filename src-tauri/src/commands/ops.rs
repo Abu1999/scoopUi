@@ -1,7 +1,7 @@
 use tauri::{AppHandle, State};
 
 use crate::commands::runner::spawn_task;
-use crate::commands::{context, roots::resolve_active_root};
+use crate::commands::{context, roots::resolve_scoop_dir};
 use crate::domain::postinstall;
 use crate::domain::root;
 use crate::domain::scoopops;
@@ -102,7 +102,7 @@ pub fn register_app_install(
     global: bool,
 ) -> Result<Vec<String>, AppError> {
     let ctx = context();
-    let root = resolve_active_root(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
     let apps_base = if global {
         root::global_dir(ctx.env_global.clone(), ctx.config_global_path(), &ctx.program_data).join("apps")
     } else {

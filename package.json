@@ -1,7 +1,7 @@
 {
   "name": "scoopui",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Scoop 包管理器的 Windows 桌面图形界面",
   "type": "module",
   "scripts": {

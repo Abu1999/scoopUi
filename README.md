@@ -2,21 +2,21 @@
 
 为 [Scoop](https://scoop.sh) 包管理器打造的 Windows 桌面图形界面。
 
-基于 Tauri 2 + Vue 3 + Rust，覆盖 Scoop 的日常使用与运维场景：应用管理、离线全量搜索、软件源与镜像、下载加速、配置集、备份恢复、环境迁移。
+基于 Tauri 2 + Vue 3 + Rust，覆盖 Scoop 的日常使用与运维场景：环境初始化、应用管理、离线全量搜索、软件源与镜像、下载加速、配置集、环境迁移。
 
 ## 功能特性
 
 ### 已安装应用
 
-- 用户级与全局应用（`SCOOP_GLOBAL`）统一列表，全局应用带「全局」标记
+- 当前 Scoop 环境的应用统一列表
 - 可更新徽标、锁定（hold）标记；支持单应用更新/卸载/锁定
-- 「全部更新」一键更新用户级与全局级可更新应用
+- 「全部更新」一键更新全部可更新应用
 
 ### 商店与搜索
 
 - 离线全量索引（解析本地软件源全部清单），输入即时出结果
 - 列表 / 卡片两种视图，结果详情（版本、描述、主页、许可证）
-- 安装：默认全局安装（可取消）、可选指定版本、实时日志与取消
+- 安装：可选指定版本、实时日志与取消
 
 ### 软件源管理
 
@@ -30,31 +30,25 @@
 
 ### 配置集（Profile）
 
-- 另存当前状态：软件源（含源地址）+ 应用（含全局标记）+ 下载加速设置
+- 另存当前状态：软件源（含源地址）+ 应用 + 下载加速设置
 - 与当前状态差异对比（缺少/多余软件源与应用、源冲突、设置变化）
 - 一键应用：写入设置、差集加源、安装缺失应用、可选卸载多余应用（默认关）
 - 导入 `scoop export` 原生 JSON（自动识别）或导出自家格式 JSON
-
-### 备份与恢复
-
-- 快照内容：`config.json` + 各软件源 remote + 已安装清单 + 配置集
-- 恢复配置（写回前自动备份为 `config.json.bak`）、重设软件源 remote
-- 缺失应用逐条安装或「全部重装」，失败即停、可重试
 
 ### 环境迁移
 
 - 扫描注册表中非 Scoop 安装的软件（含系统组件过滤）
 - 与本地清单按置信度匹配（高：名称精确；中：可执行文件名；低：描述词重叠）
-- 已在 Scoop 管理的条目自动隐藏（含全局目录）
-- 引导接管：用 Scoop 安装，可选「安装前先卸载旧版」（默认关）
+- 已在 Scoop 管理的条目自动隐藏（含旧全局安装目录）
+- 引导接管：用 Scoop 安装，可选「安装前先卸载旧版」（默认开）
 
 ### 其他
 
 - 深色模式：跟随系统 / 浅色 / 深色，重启保持
 - 任务流式日志抽屉，失败给出中文建议（网络/镜像/权限/冲突）
 - 安装后自动注册应用自带钩子（如 git 的右键菜单、文件关联、凭据管理器）
-- 多套 Scoop 根目录探测、切换与手动添加
-- 维护操作：清理缓存、清理旧版本（用户/全局）、checkup、重置 shims
+- 一体化环境：Scoop 与 UI 同装同删，默认位于安装目录内，可在设置中迁移
+- 维护操作：清理下载缓存、清理旧版本、checkup、重置 shims
 
 ## 技术栈
 
@@ -68,7 +62,7 @@
 ## 环境要求
 
 - Windows 10 及以上（x64）
-- 已安装 [Scoop](https://scoop.sh)（本应用管理的目标）
+- [Scoop](https://scoop.sh) 环境（无需预装：首次启动可一键初始化，或接入已有安装）
 - [Rust 工具链](https://rustup.rs)（rustup + MSVC Build Tools）
 - Node.js 20+ 与 pnpm
 - WebView2（Windows 10 通常已内置）
@@ -98,7 +92,7 @@ pnpm test
 # 前端类型检查与构建
 pnpm build
 
-# 真实环境流程测试（需本机有可用 scoop 环境；会真实卸载/重装 7zip 等）
+# 真实环境流程测试（需本机有可用 scoop 环境；注册表扫描匹配、git 安装钩子注册、内置快照解压校验等）
 cd src-tauri && cargo test --test live_flows -- --ignored --nocapture
 ```
 
@@ -106,7 +100,7 @@ cd src-tauri && cargo test --test live_flows -- --ignored --nocapture
 
 安装包内置 Scoop 与 main 软件源快照（浅克隆，含 `.git`）。首次启动若未检测到 Scoop，会显示引导页：
 
-- 「一键初始化（内置，无需下载）」：离线释放内置快照到目标目录（默认 `%USERPROFILE%\scoop`，可修改），可选创建 `scoop` 命令并加入 PATH
+- 「一键初始化（内置，无需下载）」：离线释放内置快照到目标目录（默认 `<安装目录>\scoop`，可修改），可选创建 `scoop` 命令并加入 PATH
 - 「在线安装最新版」：适合网络畅通、希望直接安装最新 Scoop 的场景
 - 「已经装过 Scoop？选择根目录」：接入已有安装
 
@@ -114,15 +108,14 @@ cd src-tauri && cargo test --test live_flows -- --ignored --nocapture
 
 内置快照随 ScoopUI 版本刷新（`scripts/build-scoop-bundle.ps1` 重新打包），引导页会显示快照版本。
 
-**环境清理**：由 ScoopUI 初始化的 Scoop 环境会写入标记；卸载本应用时安装程序会询问是否连同删除该目录（含已安装应用）；也可随时在「设置 → 运行环境」下方点击「删除该环境」（同时清理 PATH 条目）。手动安装的 Scoop 不会被触碰。
+**环境清理**：被 ScoopUI 接入的 Scoop 环境会写入 `ScoopDir` 标记；卸载本应用时安装程序会询问是否连同删除该目录（含已安装应用），并清理用户 PATH 中的 shims 条目与 `SCOOP` 环境变量。也可随时在「设置 → 运行环境」点击「删除该环境」（同样清理 PATH 与 `SCOOP`）。
 
 ## 数据目录
 
 | 路径 | 用途 |
 |---|---|
-| `%APPDATA%\scoopui\settings.json` | 根目录、主题等设置 |
+| `%APPDATA%\scoopui\settings.json` | Scoop 环境目录、主题等设置 |
 | `%APPDATA%\scoopui\profiles\` | 配置集文件（`<名称>.json`） |
-| `%APPDATA%\scoopui\snapshots\<时间戳>\` | 备份快照 |
 | `%LOCALAPPDATA%\scoopui\icons\` | 图标缓存 |
 
 ## 项目结构
@@ -131,12 +124,12 @@ cd src-tauri && cargo test --test live_flows -- --ignored --nocapture
 src/                       前端（Vue 3）
   api/                     命令封装与类型
   components/              布局与业务组件
-  pages/                   页面（已安装/商店/软件源/维护/配置集/备份/迁移/设置）
-  stores/                  Pinia 状态（根目录/应用/包/配置集/快照/迁移/外观等）
+  pages/                   页面（已安装/商店/软件源/维护/配置集/迁移/设置）
+  stores/                  Pinia 状态（环境/应用/包/配置集/迁移/外观等）
   utils/                   任务框架、错误建议、安装钩子等
 src-tauri/                 后端（Rust）
   src/commands/            Tauri 命令层（薄适配）
-  src/domain/              领域逻辑（清单、索引、根目录、配置、镜像、配置集、快照、注册表、迁移等）
+  src/domain/              领域逻辑（清单、索引、环境、配置、镜像、配置集、注册表、迁移等）
   tests/                   真实环境集成测试
 ```
 
@@ -145,19 +138,15 @@ src-tauri/                 后端（Rust）
 **更新 git（或其他正在使用的应用）失败**
 
 Scoop 更新应用前会检测是否有相关进程在运行。若通过本应用的终端、VS Code 等正在使用 git，会提示
-`The following instances of ... are still running`。请关闭相关窗口后重试，或在独立的管理员 PowerShell 中执行：
+`The following instances of ... are still running`。请关闭相关窗口后重试，或在独立的 PowerShell 中执行：
 
 ```powershell
-scoop update git -g
+scoop update git
 ```
 
 **提示「Uncommitted changes detected. Update aborted.」**
 
 你使用的 Scoop 是国内增强版（本地包含 URL_PROXY 等补丁），Scoop 自身的自动更新会因工作区改动被跳过；软件源与应用更新不受影响。
-
-**全局安装失败**
-
-全局应用需要管理员权限，请以管理员身份运行本应用（或使用 `scoop` 命令配合管理员终端）。
 
 **环境迁移扫描不到某软件**
 
@@ -165,6 +154,7 @@ scoop update git -g
 
 ## 非目标
 
+- 不支持多套 Scoop 环境并存/切换
 - 不自动提权（UAC 触发时仅提示）
 - 不代搬旧软件的用户数据（提供引导）
 - 无托盘常驻与开机自启（后续可评估）

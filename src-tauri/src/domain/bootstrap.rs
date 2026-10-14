@@ -402,9 +402,6 @@ fn update_user_path(mutator: impl FnOnce(&str) -> Option<String>) -> Result<(), 
         RegCloseKey, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER,
         KEY_QUERY_VALUE, KEY_SET_VALUE, REG_EXPAND_SZ, REG_SZ, REG_VALUE_TYPE,
     };
-    use windows_sys::Win32::UI::WindowsAndMessaging::{
-        SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
-    };
 
     fn wide(s: &str) -> Vec<u16> {
         s.encode_utf16().chain(std::iter::once(0)).collect()
@@ -491,21 +488,29 @@ fn update_user_path(mutator: impl FnOnce(&str) -> Option<String>) -> Result<(), 
         RegCloseKey(hkey);
     }
     if changed {
-        let environment = wide("Environment");
-        unsafe {
-            let mut result: usize = 0;
-            let _ = SendMessageTimeoutW(
-                HWND_BROADCAST,
-                WM_SETTINGCHANGE,
-                0,
-                environment.as_ptr() as isize,
-                SMTO_ABORTIFHUNG,
-                3000,
-                &mut result,
-            );
-        }
+        broadcast_environment_change();
     }
     Ok(())
+}
+
+#[cfg(windows)]
+fn broadcast_environment_change() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
+    };
+    let environment = wide_str("Environment");
+    unsafe {
+        let mut result: usize = 0;
+        let _ = SendMessageTimeoutW(
+            HWND_BROADCAST,
+            WM_SETTINGCHANGE,
+            0,
+            environment.as_ptr() as isize,
+            SMTO_ABORTIFHUNG,
+            3000,
+            &mut result,
+        );
+    }
 }
 
 #[cfg(not(windows))]
@@ -528,18 +533,105 @@ pub fn remove_shims_from_user_path(shims: &Path) -> Result<(), AppError> {
 }
 
 #[cfg(windows)]
+pub fn set_user_env(name: &str, value: &str) -> Result<(), AppError> {
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegCreateKeyExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE,
+        REG_EXPAND_SZ, REG_SZ, REG_VALUE_TYPE,
+    };
+    if name.trim().is_empty() {
+        return Err(AppError::Other("环境变量名不能为空".to_string()));
+    }
+    let sub = wide_str("Environment");
+    let value_name = wide_str(name);
+    unsafe {
+        let mut hkey: HKEY = std::ptr::null_mut();
+        let status = RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            sub.as_ptr(),
+            0,
+            std::ptr::null(),
+            0,
+            KEY_SET_VALUE,
+            std::ptr::null(),
+            &mut hkey,
+            std::ptr::null_mut(),
+        );
+        if status != 0 {
+            return Err(AppError::Other(format!("无法打开用户环境变量注册表项: {name}")));
+        }
+        let write_type: REG_VALUE_TYPE = if value.contains('%') { REG_EXPAND_SZ } else { REG_SZ };
+        let mut data: Vec<u16> = value.encode_utf16().collect();
+        data.push(0);
+        let bytes = std::slice::from_raw_parts(data.as_ptr().cast::<u8>(), data.len() * 2);
+        let status = RegSetValueExW(
+            hkey,
+            value_name.as_ptr(),
+            0,
+            write_type,
+            bytes.as_ptr(),
+            bytes.len() as u32,
+        );
+        RegCloseKey(hkey);
+        if status != 0 {
+            return Err(AppError::Other(format!("写入用户环境变量失败: {name}")));
+        }
+    }
+    broadcast_environment_change();
+    Ok(())
+}
+
+#[cfg(windows)]
+pub fn remove_user_env(name: &str) -> Result<(), AppError> {
+    use windows_sys::Win32::Foundation::ERROR_FILE_NOT_FOUND;
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegDeleteValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE,
+    };
+    if name.trim().is_empty() {
+        return Err(AppError::Other("环境变量名不能为空".to_string()));
+    }
+    let sub = wide_str("Environment");
+    let value_name = wide_str(name);
+    unsafe {
+        let mut hkey: HKEY = std::ptr::null_mut();
+        if RegOpenKeyExW(HKEY_CURRENT_USER, sub.as_ptr(), 0, KEY_SET_VALUE, &mut hkey) != 0 {
+            return Ok(());
+        }
+        let status = RegDeleteValueW(hkey, value_name.as_ptr());
+        RegCloseKey(hkey);
+        if status != 0 && status != ERROR_FILE_NOT_FOUND {
+            return Err(AppError::Other(format!("删除用户环境变量失败: {name}")));
+        }
+        if status == 0 {
+            broadcast_environment_change();
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn set_user_env(_name: &str, _value: &str) -> Result<(), AppError> {
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn remove_user_env(_name: &str) -> Result<(), AppError> {
+    Ok(())
+}
+
+#[cfg(windows)]
 fn wide_str(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
 #[cfg(windows)]
-pub fn mark_bootstrapped(dir: &Path) -> Result<(), AppError> {
+pub fn mark_scoop_dir(dir: &Path) -> Result<(), AppError> {
     use windows_sys::Win32::System::Registry::{
-        RegCloseKey, RegCreateKeyExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE,
-        REG_SZ,
+        RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegSetValueExW, HKEY, HKEY_CURRENT_USER,
+        KEY_SET_VALUE, REG_SZ,
     };
     let sub = wide_str("Software\\ScoopUI");
-    let name = wide_str("BootRoot");
+    let name = wide_str("ScoopDir");
+    let legacy = wide_str("BootRoot");
     unsafe {
         let mut hkey: HKEY = std::ptr::null_mut();
         let status = RegCreateKeyExW(
@@ -560,6 +652,9 @@ pub fn mark_bootstrapped(dir: &Path) -> Result<(), AppError> {
         data.push(0);
         let bytes = std::slice::from_raw_parts(data.as_ptr().cast::<u8>(), data.len() * 2);
         let status = RegSetValueExW(hkey, name.as_ptr(), 0, REG_SZ, bytes.as_ptr(), bytes.len() as u32);
+        if status == 0 {
+            let _ = RegDeleteValueW(hkey, legacy.as_ptr());
+        }
         RegCloseKey(hkey);
         if status != 0 {
             return Err(AppError::Other("写入注册表标记失败".to_string()));
@@ -569,12 +664,12 @@ pub fn mark_bootstrapped(dir: &Path) -> Result<(), AppError> {
 }
 
 #[cfg(windows)]
-pub fn read_boot_root() -> Option<String> {
+fn read_marker_value(value_name: &str) -> Option<String> {
     use windows_sys::Win32::System::Registry::{
         RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE,
     };
     let sub = wide_str("Software\\ScoopUI");
-    let name = wide_str("BootRoot");
+    let name = wide_str(value_name);
     unsafe {
         let mut hkey: HKEY = std::ptr::null_mut();
         if RegOpenKeyExW(HKEY_CURRENT_USER, sub.as_ptr(), 0, KEY_QUERY_VALUE, &mut hkey) != 0 {
@@ -624,35 +719,42 @@ pub fn read_boot_root() -> Option<String> {
 }
 
 #[cfg(windows)]
-pub fn clear_boot_root() -> Result<(), AppError> {
+pub fn read_scoop_dir() -> Option<String> {
+    read_marker_value("ScoopDir").or_else(|| read_marker_value("BootRoot"))
+}
+
+#[cfg(windows)]
+pub fn clear_scoop_dir() -> Result<(), AppError> {
     use windows_sys::Win32::System::Registry::{
         RegCloseKey, RegDeleteValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE,
     };
     let sub = wide_str("Software\\ScoopUI");
-    let name = wide_str("BootRoot");
+    let names = [wide_str("ScoopDir"), wide_str("BootRoot")];
     unsafe {
         let mut hkey: HKEY = std::ptr::null_mut();
         if RegOpenKeyExW(HKEY_CURRENT_USER, sub.as_ptr(), 0, KEY_SET_VALUE, &mut hkey) != 0 {
             return Ok(());
         }
-        let _ = RegDeleteValueW(hkey, name.as_ptr());
+        for name in &names {
+            let _ = RegDeleteValueW(hkey, name.as_ptr());
+        }
         RegCloseKey(hkey);
     }
     Ok(())
 }
 
 #[cfg(not(windows))]
-pub fn mark_bootstrapped(_dir: &Path) -> Result<(), AppError> {
+pub fn mark_scoop_dir(_dir: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
 #[cfg(not(windows))]
-pub fn read_boot_root() -> Option<String> {
+pub fn read_scoop_dir() -> Option<String> {
     None
 }
 
 #[cfg(not(windows))]
-pub fn clear_boot_root() -> Result<(), AppError> {
+pub fn clear_scoop_dir() -> Result<(), AppError> {
     Ok(())
 }
 
@@ -853,5 +955,14 @@ mod tests {
         assert!(!report.git_available);
         assert!(report.elevated);
         assert_eq!(report.existing_root.as_deref(), Some(r"C:\scoop"));
+    }
+
+    #[test]
+    fn scoop_dir_marker_roundtrip_and_legacy_clear() {
+        let tmp = tempfile::tempdir().unwrap();
+        mark_scoop_dir(tmp.path()).unwrap();
+        assert_eq!(read_scoop_dir().as_deref(), Some(tmp.path().display().to_string().as_str()));
+        clear_scoop_dir().unwrap();
+        assert!(read_scoop_dir().is_none());
     }
 }

@@ -111,7 +111,7 @@ pub fn finalize_scoop_bootstrap(dir: String, add_to_path: bool) -> Result<Finali
             Err(e) => warnings.push(format!("创建 scoop 命令失败: {e}")),
         }
     }
-    if let Err(e) = bootstrap::mark_bootstrapped(&target) {
+    if let Err(e) = bootstrap::mark_scoop_dir(&target) {
         warnings.push(format!("写入初始化标记失败: {e}"));
     }
     Ok(FinalizeResult {
@@ -124,7 +124,7 @@ pub fn finalize_scoop_bootstrap(dir: String, add_to_path: bool) -> Result<Finali
 #[tauri::command(async)]
 pub fn get_boot_info(state: State<'_, AppState>) -> Result<BootInfo, AppError> {
     let ctx = context();
-    let boot = bootstrap::read_boot_root();
+    let boot = bootstrap::read_scoop_dir();
     let active = resolve_active_root(&ctx, &state).map(|p| p.display().to_string());
     let active_is_boot = match (&boot, &active) {
         (Some(b), Some(a)) => {
@@ -143,11 +143,11 @@ pub fn get_boot_info(state: State<'_, AppState>) -> Result<BootInfo, AppError> {
 #[tauri::command(async)]
 pub fn remove_bootstrapped_scoop(state: State<'_, AppState>) -> Result<String, AppError> {
     let ctx = context();
-    let boot = bootstrap::read_boot_root()
+    let boot = bootstrap::read_scoop_dir()
         .ok_or_else(|| AppError::Other("未检测到由本应用初始化的 Scoop 环境".to_string()))?;
     let target = PathBuf::from(&boot);
     if !target.is_dir() {
-        bootstrap::clear_boot_root()?;
+        bootstrap::clear_scoop_dir()?;
         return Err(AppError::Other(format!("目录已不存在: {boot}")));
     }
     std::fs::remove_dir_all(&target)?;
@@ -172,7 +172,7 @@ pub fn remove_bootstrapped_scoop(state: State<'_, AppState>) -> Result<String, A
     {
         *state.active_root.lock().unwrap() = None;
     }
-    bootstrap::clear_boot_root()?;
+    bootstrap::clear_scoop_dir()?;
     Ok(boot)
 }
 

@@ -34,12 +34,21 @@ pub fn build(root: &Path, args: &[String]) -> Result<ScoopCommand, AppError> {
         return Err(AppError::MissingScoopScript(ps1.display().to_string()));
     }
     let joined = args.iter().map(|a| quote_ps(a)).collect::<Vec<_>>().join(" ");
+    // 末尾显式 `exit $LASTEXITCODE`：本 fork 的 `&` 调用不会把子脚本的 exit 码
+    // 带回 PowerShell 进程（失败命令也返回 0），必须显式带出，否则失败会被当作成功。
     let script = format!(
-        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $OutputEncoding=[Text.Encoding]::UTF8; & {} {}",
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $OutputEncoding=[Text.Encoding]::UTF8; & {} {}; exit $LASTEXITCODE",
         quote_ps(&ps1.display().to_string()),
         joined
     );
-    let envs = vec![("SCOOP".to_string(), root.display().to_string())];
+    let mut envs = vec![("SCOOP".to_string(), root.display().to_string())];
+    // 子进程 PATH 前置环境 shims：应用启动后才安装的 shim（如 git）立即可用，无需重启。
+    let shims = root.join("shims").display().to_string();
+    let current_path = std::env::var_os("PATH").map(|p| p.to_string_lossy().into_owned());
+    envs.push((
+        "PATH".to_string(),
+        crate::domain::proc::merge_path_prepend(current_path.as_deref(), &shims),
+    ));
     let display = format!("scoop {}", args.join(" "));
     Ok(ScoopCommand {
         program: "powershell.exe".to_string(),
@@ -307,6 +316,27 @@ mod tests {
         let script = cmd.args.last().unwrap();
         assert!(script.contains("scoop.ps1"));
         assert!(script.contains("'install' 'git'"));
+    }
+
+    #[test]
+    fn build_propagates_exit_code_and_injects_shims_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = make_root_with_ps1(tmp.path());
+        let cmd = build(&root, &["bucket".into(), "add".into(), "extras".into()]).unwrap();
+        // 失败命令也必须把退出码带回 PowerShell 进程（fork 的 & 调用不会自动传递）
+        let script = cmd.args.last().unwrap();
+        assert!(
+            script.trim_end().ends_with("; exit $LASTEXITCODE"),
+            "脚本应以 exit $LASTEXITCODE 结尾：{script}"
+        );
+        // 子进程 PATH 必须能看到环境 shims（装完 git 无需重启应用）
+        let shims = root.join("shims").display().to_string();
+        let (_, path) = cmd
+            .envs
+            .iter()
+            .find(|(k, _)| k == "PATH")
+            .expect("应注入 PATH");
+        assert!(path.starts_with(&shims), "PATH 应前置 shims：{path}");
     }
 
     #[test]

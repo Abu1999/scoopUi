@@ -29,10 +29,9 @@ struct RawBundle {
 }
 
 pub fn read_bundle_info(path: &Path) -> Result<BundleInfo, AppError> {
-    let text = std::fs::read_to_string(path)
-        .map_err(|_| AppError::Other(format!("未找到内置快照元数据: {}", path.display())))?;
-    let text = text.trim_start_matches('\u{feff}');
-    let raw: RawBundle = serde_json::from_str(text)
+    let text = crate::domain::text::read_text(path)
+        .ok_or_else(|| AppError::Other(format!("未找到内置快照元数据: {}", path.display())))?;
+    let raw: RawBundle = serde_json::from_str(crate::domain::text::strip_bom(&text))
         .map_err(|_| AppError::Other("内置快照元数据损坏".to_string()))?;
     if raw.scoop.commit.is_empty() || raw.main.commit.is_empty() {
         return Err(AppError::Other("内置快照元数据损坏".to_string()));
@@ -205,13 +204,36 @@ pub fn finalize(dir: &Path, staging: &Path) -> Result<usize, AppError> {
     }
 }
 
-pub fn write_root_path_config(user_config_home: &Path, dir: &Path) -> Result<(), AppError> {
-    let config = user_config_home.join("scoop").join("config.json");
+/// 确保环境使用目录内的配置文件（Scoop 便携模式）。
+///
+/// 缺失时创建仅含 `root_path` 的最小配置；已存在则原样保留，返回是否新建。
+/// 由启动时与接入/初始化流程调用，保证配置只落在环境目录内。
+pub fn ensure_env_config(root: &Path) -> Result<bool, AppError> {
+    if crate::domain::configfile::resolve(root).is_file() {
+        return Ok(false);
+    }
+    set_env_root_path(root)?;
+    Ok(true)
+}
+
+/// 把环境目录写入 `<环境目录>\config.json` 的 `root_path`（文件缺失时创建）。
+///
+/// Scoop 的自带逻辑（core.ps1）在便携配置存在时优先读取它，
+/// `root_path` 供其定位环境根目录。
+pub fn set_env_root_path(root: &Path) -> Result<(), AppError> {
     crate::domain::configfile::set_key(
-        &config,
+        &crate::domain::configfile::resolve(root),
         "root_path",
-        Some(serde_json::Value::String(dir.display().to_string())),
+        Some(serde_json::Value::String(root.display().to_string())),
     )
+}
+
+/// 清掉 `%USERPROFILE%\.config\scoop\config.json` 里的 `root_path`（旧位置遗留）。
+///
+/// 删环境时若不清，Scoop 及其它工具仍会以为环境还在该目录。
+pub fn remove_root_path_config(user_config_home: &Path) -> Result<(), AppError> {
+    let config = user_config_home.join("scoop").join("config.json");
+    crate::domain::configfile::set_key(&config, "root_path", None)
 }
 
 pub fn ensure_shims(dir: &Path) -> Result<(), AppError> {
@@ -546,6 +568,53 @@ pub fn remove_shims_from_user_path(shims: &Path) -> Result<(), AppError> {
         let next = remove_from_path_var(current, shims);
         (next != current).then_some(next)
     })
+}
+
+/// 过滤掉用户 PATH 中指向 `prefix` 本身或其后代的条目（大小写不敏感、忽略末尾斜杠）。
+///
+/// 删除环境/应用后用它清掉指向已删目录的残留条目
+/// （如 `apps\python\current\Scripts`），避免用户 PATH 里留下死路径。
+pub fn remove_paths_under(current: &str, prefix: &Path) -> String {
+    let target = crate::domain::root::normalized(prefix);
+    let with_sep = format!("{target}\\");
+    current
+        .split(';')
+        .filter(|p| {
+            let t = p.trim();
+            if t.is_empty() {
+                return true;
+            }
+            let norm = crate::domain::root::normalized(Path::new(t));
+            norm != target && !norm.starts_with(with_sep.as_str())
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+/// 从用户 PATH 中删除指向 `prefix`（含子孙目录）的全部条目。
+pub fn remove_paths_under_from_user_path(prefix: &Path) -> Result<(), AppError> {
+    update_user_path(|current| {
+        let next = remove_paths_under(current, prefix);
+        (next != current).then_some(next)
+    })
+}
+
+/// 删除开始菜单里的「Scoop Apps」快捷方式目录（Scoop 为各应用创建的快捷方式）。
+///
+/// 返回是否真的删除了目录；目录不存在或删除失败时返回 false。
+/// 删环境时调用，避免留下指向已删除应用的死快捷方式。
+pub fn remove_startmenu_shortcuts(appdata: &Path) -> bool {
+    let dir = appdata
+        .join("Microsoft")
+        .join("Windows")
+        .join("Start Menu")
+        .join("Programs")
+        .join("Scoop Apps");
+    if dir.is_dir() {
+        std::fs::remove_dir_all(&dir).is_ok()
+    } else {
+        false
+    }
 }
 
 #[cfg(windows)]
@@ -884,6 +953,81 @@ mod tests {
         );
         assert_eq!(remove_from_path_var(r"C:\scoop\shims", Path::new(r"C:\scoop\shims")), "");
         assert_eq!(remove_from_path_var(r"C:\a;C:\b", Path::new(r"C:\x")), r"C:\a;C:\b");
+    }
+
+    #[test]
+    fn paths_under_root_prefix_filtered() {
+        let root = Path::new(r"D:\ScoopUI\scoop");
+        let current = r"C:\other;D:\ScoopUI\scoop\shims;D:\SCOOPUI\SCOOP\apps\python\current\Scripts;D:\ScoopUI\scoop2\bin;D:\ScoopUI\scoop;D:\ScoopUI\scoop\";
+        assert_eq!(remove_paths_under(current, root), r"C:\other;D:\ScoopUI\scoop2\bin");
+        // 空条目保留（与 remove_from_path_var 行为一致）
+        assert_eq!(remove_paths_under("a;;b", root), "a;;b");
+    }
+
+    #[test]
+    fn paths_under_app_prefix_keeps_siblings() {
+        let app = Path::new(r"D:\ScoopUI\scoop\apps\python");
+        let current = r"D:\ScoopUI\scoop\shims;D:\ScoopUI\scoop\apps\python;D:\ScoopUI\scoop\apps\python\current\Scripts;D:\ScoopUI\scoop\apps\python2;D:\ScoopUI\scoop\apps\python3.13";
+        assert_eq!(
+            remove_paths_under(current, app),
+            r"D:\ScoopUI\scoop\shims;D:\ScoopUI\scoop\apps\python2;D:\ScoopUI\scoop\apps\python3.13"
+        );
+    }
+
+    #[test]
+    fn startmenu_shortcuts_removed_when_present() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp
+            .path()
+            .join("Microsoft")
+            .join("Windows")
+            .join("Start Menu")
+            .join("Programs")
+            .join("Scoop Apps");
+        std::fs::create_dir_all(dir.join("Git")).unwrap();
+        std::fs::write(dir.join("Git").join("Git Bash.lnk"), "x").unwrap();
+        assert!(remove_startmenu_shortcuts(tmp.path()));
+        assert!(!dir.exists());
+        // 再次调用：目录已不存在，返回 false 且不报错
+        assert!(!remove_startmenu_shortcuts(tmp.path()));
+    }
+
+    #[test]
+    fn ensure_env_config_creates_minimal_then_keeps_existing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("scoop");
+        std::fs::create_dir_all(&root).unwrap();
+        assert!(ensure_env_config(&root).unwrap());
+        let v = crate::domain::configfile::load(&root.join("config.json"));
+        assert_eq!(
+            v.get("root_path").and_then(|x| x.as_str()),
+            Some(root.display().to_string().as_str())
+        );
+        // 已存在：不触碰，保留原有键
+        std::fs::write(root.join("config.json"), r#"{"url_proxy":"https://x"}"#).unwrap();
+        assert!(!ensure_env_config(&root).unwrap());
+        let v = crate::domain::configfile::load(&root.join("config.json"));
+        assert_eq!(v.get("url_proxy").and_then(|x| x.as_str()), Some("https://x"));
+        assert!(v.get("root_path").is_none());
+    }
+
+    #[test]
+    fn set_env_root_path_updates_without_touching_other_keys() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("scoop");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join("config.json"),
+            r#"{"url_proxy":"https://x","root_path":"D:\\old"}"#,
+        )
+        .unwrap();
+        set_env_root_path(&root).unwrap();
+        let v = crate::domain::configfile::load(&root.join("config.json"));
+        assert_eq!(v.get("url_proxy").and_then(|x| x.as_str()), Some("https://x"));
+        assert_eq!(
+            v.get("root_path").and_then(|x| x.as_str()),
+            Some(root.display().to_string().as_str())
+        );
     }
 
     #[test]

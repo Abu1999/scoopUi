@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::commands::{context, roots::resolve_scoop_dir};
 use crate::domain::scoopcmd;
 use crate::error::AppError;
-use crate::state::AppState;
+use crate::state::{AppState, TaskInfo, TaskScope};
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,11 +24,54 @@ struct EndPayload {
     success: bool,
 }
 
-pub(crate) fn ensure_idle(tasks: &HashMap<String, u32>) -> Result<(), AppError> {
+/// 任务并发规则：
+///
+/// - `Global` 任务独占：任何任务在跑都不能再启动全局任务；
+/// - `App(name)` 任务：不同应用可并发（下载 A 时可操作 B），
+///   但同一应用（大小写不敏感）或全局任务在跑时拒绝。
+pub(crate) fn ensure_scope_available(
+    tasks: &HashMap<String, TaskInfo>,
+    scope: &TaskScope,
+) -> Result<(), AppError> {
+    match scope {
+        TaskScope::Global => {
+            if tasks.is_empty() {
+                Ok(())
+            } else {
+                Err(AppError::Other(
+                    "已有任务正在运行：全局操作需独占，请等待完成或取消后再试".to_string(),
+                ))
+            }
+        }
+        TaskScope::App(name) => {
+            for info in tasks.values() {
+                match &info.scope {
+                    TaskScope::Global => {
+                        return Err(AppError::Other(
+                            "已有全局任务正在运行，请等待完成或取消后再试".to_string(),
+                        ));
+                    }
+                    TaskScope::App(other) if other.eq_ignore_ascii_case(name) => {
+                        return Err(AppError::Other(format!(
+                            "应用 {name} 已有任务在运行，请等待完成或取消后再试"
+                        )));
+                    }
+                    TaskScope::App(_) => {}
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
+/// 环境级操作（迁移/删除环境）前置检查：任何任务运行中都不允许。
+pub(crate) fn ensure_no_tasks(tasks: &HashMap<String, TaskInfo>) -> Result<(), AppError> {
     if tasks.is_empty() {
         Ok(())
     } else {
-        Err(AppError::Other("已有任务正在运行，请等待完成或取消后再试".to_string()))
+        Err(AppError::Other(
+            "当前有任务正在运行，请先完成或取消后再操作环境".to_string(),
+        ))
     }
 }
 
@@ -38,11 +81,26 @@ pub(crate) fn spawn_command(
     cmd: scoopcmd::ScoopCommand,
     task_id: String,
 ) -> Result<(), AppError> {
+    spawn_command_scoped(app, state, cmd, task_id, TaskScope::Global, None)
+}
+
+/// 执行外部命令（按 `scope` 参与并发冲突检查）；成功退出后执行可选清理钩子。
+///
+/// 钩子在发出 `scoop-task-end` 事件之前、于工作线程内执行，
+/// 因此前端收到结束事件并刷新时，清理已经完成。
+pub(crate) fn spawn_command_scoped(
+    app: &AppHandle,
+    state: &AppState,
+    cmd: scoopcmd::ScoopCommand,
+    task_id: String,
+    scope: TaskScope,
+    after_success: Option<Box<dyn FnOnce() + Send>>,
+) -> Result<(), AppError> {
     let spawned = {
         let mut tasks = state.tasks.lock().unwrap();
-        ensure_idle(&tasks)?;
+        ensure_scope_available(&tasks, &scope)?;
         let spawned = scoopcmd::spawn(&cmd)?;
-        tasks.insert(task_id.clone(), spawned.pid());
+        tasks.insert(task_id.clone(), TaskInfo { pid: spawned.pid(), scope });
         spawned
     };
 
@@ -65,6 +123,11 @@ pub(crate) fn spawn_command(
             Ok(c) => (c, c == Some(0)),
             Err(_) => (None, false),
         };
+        if success {
+            if let Some(hook) = after_success {
+                hook();
+            }
+        }
         let _ = app_handle.emit(
             "scoop-task-end",
             EndPayload { task_id: task.clone(), code, success },
@@ -82,10 +145,22 @@ pub(crate) fn spawn_task(
     args: Vec<String>,
     task_id: String,
 ) -> Result<(), AppError> {
+    spawn_task_scoped(app, state, args, task_id, TaskScope::Global, None)
+}
+
+/// 执行 scoop 命令（按 `scope` 参与并发冲突检查），可选成功清理钩子。
+pub(crate) fn spawn_task_scoped(
+    app: &AppHandle,
+    state: &AppState,
+    args: Vec<String>,
+    task_id: String,
+    scope: TaskScope,
+    after_success: Option<Box<dyn FnOnce() + Send>>,
+) -> Result<(), AppError> {
     let ctx = context();
     let root_path = resolve_scoop_dir(&ctx, state).ok_or(AppError::NoRoot)?;
     let cmd = scoopcmd::build(&root_path, &args)?;
-    spawn_command(app, state, cmd, task_id)
+    spawn_command_scoped(app, state, cmd, task_id, scope, after_success)
 }
 
 #[tauri::command(async)]
@@ -99,7 +174,7 @@ pub fn run_scoop(
 }
 
 pub(crate) fn cancel_task_inner(state: &AppState, task_id: &str) -> bool {
-    let pid = match state.tasks.lock().unwrap().get(task_id).copied() {
+    let pid = match state.tasks.lock().unwrap().get(task_id).map(|t| t.pid) {
         Some(pid) => pid,
         None => return false,
     };
@@ -156,12 +231,45 @@ mod tests {
     }
 
     #[test]
-    fn ensure_idle_rejects_when_task_running() {
+    fn global_scope_requires_exclusive() {
         let mut tasks = std::collections::HashMap::new();
-        assert!(ensure_idle(&tasks).is_ok());
-        tasks.insert("t".to_string(), 1234);
-        let err = ensure_idle(&tasks).unwrap_err();
-        assert!(err.to_string().contains("已有任务正在运行"));
+        assert!(ensure_scope_available(&tasks, &TaskScope::Global).is_ok());
+        tasks.insert(
+            "t".to_string(),
+            TaskInfo { pid: 1234, scope: TaskScope::App("git".to_string()) },
+        );
+        let err = ensure_scope_available(&tasks, &TaskScope::Global).unwrap_err();
+        assert!(err.to_string().contains("全局操作需独占"), "实际: {err}");
+    }
+
+    #[test]
+    fn app_scope_allows_other_apps_and_rejects_same_app() {
+        let mut tasks = std::collections::HashMap::new();
+        tasks.insert(
+            "t".to_string(),
+            TaskInfo { pid: 1, scope: TaskScope::App("git".to_string()) },
+        );
+        // 不同应用（大小写不敏感）→ 允许并发
+        assert!(ensure_scope_available(&tasks, &TaskScope::App("python".to_string())).is_ok());
+        let err = ensure_scope_available(&tasks, &TaskScope::App("GIT".to_string())).unwrap_err();
+        assert!(err.to_string().contains("应用 GIT 已有任务"), "实际: {err}");
+    }
+
+    #[test]
+    fn app_scope_rejected_while_global_running() {
+        let mut tasks = std::collections::HashMap::new();
+        tasks.insert("t".to_string(), TaskInfo { pid: 1, scope: TaskScope::Global });
+        let err = ensure_scope_available(&tasks, &TaskScope::App("git".to_string())).unwrap_err();
+        assert!(err.to_string().contains("全局任务正在运行"), "实际: {err}");
+    }
+
+    #[test]
+    fn ensure_no_tasks_blocks_env_ops() {
+        let mut tasks = std::collections::HashMap::new();
+        assert!(ensure_no_tasks(&tasks).is_ok());
+        tasks.insert("t".to_string(), TaskInfo { pid: 1, scope: TaskScope::Global });
+        let err = ensure_no_tasks(&tasks).unwrap_err();
+        assert!(err.to_string().contains("操作环境"), "实际: {err}");
     }
 
     #[test]
@@ -181,7 +289,10 @@ mod tests {
         };
         let mut spawned = scoopcmd::spawn(&cmd).unwrap();
         let state = AppState::default();
-        state.tasks.lock().unwrap().insert("task-1".to_string(), spawned.pid());
+        state.tasks.lock().unwrap().insert(
+            "task-1".to_string(),
+            TaskInfo { pid: spawned.pid(), scope: TaskScope::Global },
+        );
         assert!(cancel_task_inner(&state, "task-1"));
         assert!(!state.tasks.lock().unwrap().contains_key("task-1"));
         let start = std::time::Instant::now();
@@ -202,7 +313,10 @@ mod tests {
         let pid = spawned.pid();
         let _ = spawned.child.wait();
         let state = AppState::default();
-        state.tasks.lock().unwrap().insert("task-dead".to_string(), pid);
+        state.tasks.lock().unwrap().insert(
+            "task-dead".to_string(),
+            TaskInfo { pid, scope: TaskScope::Global },
+        );
         assert!(!cancel_task_inner(&state, "task-dead"));
         assert!(state.tasks.lock().unwrap().contains_key("task-dead"));
     }

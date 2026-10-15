@@ -5,11 +5,11 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::commands::context;
 use crate::commands::roots::resolve_scoop_dir;
-use crate::commands::runner::spawn_command;
+use crate::commands::runner::{spawn_command, spawn_command_scoped};
 use crate::domain::bootstrap::{self, BundleInfo, PrereqReport};
 use crate::domain::scoopcmd::ScoopCommand;
 use crate::error::AppError;
-use crate::state::AppState;
+use crate::state::{AppState, TaskScope};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct FinalizeResult {
@@ -84,7 +84,6 @@ pub fn extract_scoop_bundle(
 
 #[tauri::command(async)]
 pub fn finalize_scoop_bootstrap(dir: String, add_to_path: bool) -> Result<FinalizeResult, AppError> {
-    let ctx = context();
     let target = PathBuf::from(&dir);
     let staging = bootstrap::staging_dir(&target);
     let count = bootstrap::finalize(&target, &staging)?;
@@ -92,8 +91,8 @@ pub fn finalize_scoop_bootstrap(dir: String, add_to_path: bool) -> Result<Finali
     if let Err(e) = crate::domain::bootstrap::set_user_env("SCOOP", &target.display().to_string()) {
         warnings.push(format!("写入 SCOOP 环境变量失败：{e}"));
     }
-    if let Err(e) = crate::domain::bootstrap::write_root_path_config(&ctx.user_config_home, &target) {
-        warnings.push(format!("写入 root_path 配置失败：{e}"));
+    if let Err(e) = crate::domain::bootstrap::set_env_root_path(&target) {
+        warnings.push(format!("写入环境配置失败：{e}"));
     }
     let mut path_updated = false;
     if add_to_path {
@@ -150,7 +149,12 @@ pub fn install_scoop_online(
         envs: vec![],
         display: "install scoop online".to_string(),
     };
-    spawn_command(&app, &state, cmd, task_id)
+    // 在线安装成功后补建环境内配置（Scoop 便携模式），保证配置落在环境目录内。
+    let hook_target = target.clone();
+    let after_success: Box<dyn FnOnce() + Send> = Box::new(move || {
+        let _ = bootstrap::ensure_env_config(&hook_target);
+    });
+    spawn_command_scoped(&app, &state, cmd, task_id, TaskScope::Global, Some(after_success))
 }
 
 #[cfg(test)]

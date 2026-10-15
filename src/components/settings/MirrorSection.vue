@@ -11,7 +11,7 @@
         :value="currentSource(info.scoop_remote, info.presets)"
         size="small"
         class="source-select"
-        :disabled="busy || !info.presets"
+        :disabled="!info.presets"
         :options="sourceOptions"
         placeholder="选择 scoop 仓库源"
         @update:value="applyScoop"
@@ -37,7 +37,6 @@
                 :value="currentSource(b.remote, b.presets)"
                 size="tiny"
                 class="source-select"
-                :disabled="busy"
                 :options="sourceOptions"
                 placeholder="选择"
                 @update:value="(v: string) => applyBucket(b.name, v)"
@@ -52,17 +51,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
 import { NDescriptions, NDescriptionsItem, NSelect, NTable, useMessage } from "naive-ui";
 import { setBucketSource, setScoopSource } from "../../api/commands";
 import type { MirrorInfo, MirrorPresets } from "../../api/types";
-import { useLogsStore } from "../../stores/logs";
 
 const props = defineProps<{ info: MirrorInfo }>();
 const emit = defineEmits<{ changed: [] }>();
 const message = useMessage();
-const logs = useLogsStore();
-const busy = computed(() => logs.busy);
 const sourceOptions = [
   { label: "官方 GitHub", value: "official" },
   { label: "gitee 镜像", value: "gitee" },
@@ -83,7 +78,7 @@ function currentSource(remote: string | null, presets: MirrorPresets | null): st
 }
 
 async function applyScoop(source: string) {
-  if (busy.value || !props.info.presets) return;
+  if (!props.info.presets) return;
   try {
     const url = await setScoopSource(source);
     message.success(`已切换 scoop 仓库源: ${url}`);
@@ -94,7 +89,6 @@ async function applyScoop(source: string) {
 }
 
 async function applyBucket(name: string, source: string) {
-  if (busy.value) return;
   try {
     const url = await setBucketSource(name, source);
     message.success(`软件源 ${name} 已切换: ${url}`);

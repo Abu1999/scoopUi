@@ -117,6 +117,11 @@ fn profile_path(dir: &Path, name: &str) -> PathBuf {
     dir.join(format!("{name}.json"))
 }
 
+fn read_profile(dir: &Path, name: &str) -> Option<Profile> {
+    let text = crate::domain::text::read_text(&profile_path(dir, name))?;
+    crate::domain::text::parse_json(&text)
+}
+
 pub fn exists(dir: &Path, name: &str) -> bool {
     profile_path(dir, name).is_file()
 }
@@ -139,10 +144,7 @@ pub fn list(dir: &Path) -> Vec<ProfileSummary> {
         let Some(stem) = path.file_stem().map(|s| s.to_string_lossy().to_string()) else {
             continue;
         };
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        let Ok(profile) = serde_json::from_str::<Profile>(&text) else {
+        let Some(profile) = read_profile(dir, &stem) else {
             continue;
         };
         out.push(ProfileSummary {
@@ -159,9 +161,10 @@ pub fn list(dir: &Path) -> Vec<ProfileSummary> {
 
 pub fn load(dir: &Path, name: &str) -> Result<Profile, AppError> {
     validate_profile_name(name)?;
-    let text = std::fs::read_to_string(profile_path(dir, name))
-        .map_err(|_| AppError::Other(format!("配置集不存在: {name}")))?;
-    serde_json::from_str(&text).map_err(|_| AppError::Other(format!("配置集文件损坏: {name}")))
+    let text = crate::domain::text::read_text(&profile_path(dir, name))
+        .ok_or_else(|| AppError::Other(format!("配置集不存在: {name}")))?;
+    crate::domain::text::parse_json_result(&text)
+        .map_err(|_| AppError::Other(format!("配置集文件损坏: {name}")))
 }
 
 pub fn save(dir: &Path, profile: &Profile) -> Result<(), AppError> {
@@ -290,8 +293,8 @@ struct ScoopApp {
 }
 
 pub fn parse_import(text: &str, name: &str) -> Result<Profile, AppError> {
-    let value: Value =
-        serde_json::from_str(text).map_err(|_| AppError::Other("无法识别的配置集文件".to_string()))?;
+    let value: Value = crate::domain::text::parse_json_result(text)
+        .map_err(|_| AppError::Other("无法识别的配置集文件".to_string()))?;
     if let Ok(profile) = serde_json::from_value::<Profile>(value.clone()) {
         let mut p = profile;
         p.name = name.to_string();

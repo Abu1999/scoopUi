@@ -54,8 +54,8 @@ fn resolved_config_path(
     state: &AppState,
 ) -> Result<(std::path::PathBuf, std::path::PathBuf), AppError> {
     let root = resolve_scoop_dir(ctx, state).ok_or(AppError::NoRoot)?;
-    let resolved = configfile::resolve(&root, &ctx.user_config_home);
-    Ok((root, resolved.path))
+    let config_path = configfile::resolve(&root);
+    Ok((root, config_path))
 }
 
 #[tauri::command(async)]
@@ -139,9 +139,10 @@ pub async fn set_bucket_source(
         .ok_or_else(|| AppError::Other(format!("软件源不是 git 仓库，无法切换源: {bucket}")))?;
     let url = mirrors::apply_source(&remote, &source, icons::default_proxy())?;
     let dir_text = dir.display().to_string();
+    let shims = root.join("shims");
     let applied = url.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        mirrors::run_git(&dir_text, &["remote", "set-url", "origin", &applied])
+        mirrors::run_git(&dir_text, &["remote", "set-url", "origin", &applied], &shims)
     })
     .await
     .map_err(|e| AppError::Other(format!("切换源失败: {e}")))??;
@@ -162,9 +163,10 @@ pub async fn set_scoop_source(
         .ok_or_else(|| AppError::Other("无法读取 scoop 仓库地址".to_string()))?;
     let url = mirrors::apply_source(&current, &source, icons::default_proxy())?;
     let dir_text = dir.display().to_string();
+    let shims = root.join("shims");
     let applied = url.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        mirrors::run_git(&dir_text, &["remote", "set-url", "origin", &applied])
+        mirrors::run_git(&dir_text, &["remote", "set-url", "origin", &applied], &shims)
     })
     .await
     .map_err(|e| AppError::Other(format!("切换源失败: {e}")))??;

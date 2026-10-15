@@ -52,11 +52,11 @@ describe("TopBar 环境展示", () => {
     expect(wrapper.text()).toContain("未找到 scoop 安装目录");
   });
 
-  it("无效与便携配置时展示标签", () => {
+  it("无效环境时展示标签", () => {
     const roots = useRootsStore();
-    roots.env = makeEnv({ valid: false, has_portable_config: true });
+    roots.env = makeEnv({ valid: false });
     const wrapper = mount(TopBar);
     expect(wrapper.text()).toContain("无效");
-    expect(wrapper.text()).toContain("便携配置");
+    expect(wrapper.text()).not.toContain("便携配置");
   });
 });

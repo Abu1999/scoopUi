@@ -35,6 +35,22 @@ export interface ScoopConfig {
   values: unknown;
 }
 
+export interface LockHolderInfo {
+  pid: number;
+  name: string;
+  is_explorer: boolean;
+}
+
+export interface EnvLockInfo {
+  remaining_files: string[];
+  holders: LockHolderInfo[];
+}
+
+export interface AppProcessInfo {
+  pid: number;
+  name: string;
+}
+
 export interface ScoopLogEvent {
   taskId: string;
   stream: "stdout" | "stderr";

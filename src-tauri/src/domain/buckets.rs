@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::domain::text;
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BucketInfo {
     pub name: String,
@@ -13,7 +15,7 @@ fn git_config_path(bucket_dir: &Path) -> Option<std::path::PathBuf> {
     if git.is_dir() {
         Some(git.join("config"))
     } else if git.is_file() {
-        let text = std::fs::read_to_string(&git).ok()?;
+        let text = text::read_text(&git)?;
         let line = text.lines().find(|l| l.trim_start().starts_with("gitdir:"))?;
         let dir = line.trim_start().trim_start_matches("gitdir:").trim();
         let p = std::path::PathBuf::from(dir);
@@ -25,7 +27,7 @@ fn git_config_path(bucket_dir: &Path) -> Option<std::path::PathBuf> {
 }
 
 pub fn git_remote(bucket_dir: &Path) -> Option<String> {
-    let text = std::fs::read_to_string(git_config_path(bucket_dir)?).ok()?;
+    let text = text::read_text(&git_config_path(bucket_dir)?)?;
     let mut in_origin = false;
     for line in text.lines() {
         let t = line.trim();

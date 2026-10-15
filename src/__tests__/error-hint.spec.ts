@@ -21,4 +21,17 @@ describe("errorHint", () => {
   it("超时文案给出网络建议", () => {
     expect(errorHint(["等待任务结束事件超时"])).toContain("网络");
   });
+  it("文件被占用/程序运行中给出强制删除建议", () => {
+    expect(errorHint(["The process cannot access the file because it is being used by another process."])).toContain(
+      "强制删除",
+    );
+    expect(errorHint(["The following instances of \"git\" are still running. Close them and try again."])).toContain(
+      "强制删除",
+    );
+  });
+  it("缺少 git 给出安装 git 建议", () => {
+    expect(errorHint(["ERROR Git is required for buckets. Run 'scoop install git' and try again."])).toContain(
+      "先在商店安装 git",
+    );
+  });
 });

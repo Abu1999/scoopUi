@@ -60,7 +60,7 @@ fn license_from(v: &serde_json::Value) -> Option<String> {
 }
 
 pub fn parse(text: &str) -> Result<ManifestSummary, AppError> {
-    let raw: Raw = serde_json::from_str(text)?;
+    let raw: Raw = serde_json::from_str(crate::domain::text::strip_bom(text))?;
     let version = raw
         .version
         .filter(|v| !v.is_empty())
@@ -114,6 +114,12 @@ mod tests {
     fn rejects_manifest_without_version() {
         let err = parse(r#"{"description":"x"}"#).unwrap_err();
         assert!(err.to_string().contains("version"));
+    }
+
+    #[test]
+    fn parses_manifest_with_utf8_bom() {
+        let m = parse("\u{feff}{\"version\":\"1.0\"}").unwrap();
+        assert_eq!(m.version, "1.0");
     }
 
     #[test]

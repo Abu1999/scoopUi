@@ -54,9 +54,18 @@ pub fn apply_source(remote: &str, source: &str, proxy: &str) -> Result<String, A
     }
 }
 
-pub fn run_git(dir: &str, args: &[&str]) -> Result<(), AppError> {
+/// 运行 git 命令（对指定仓库目录）。
+///
+/// `shims` 为环境 shims 目录，会前置到子进程 PATH：应用启动后才安装的 git
+/// 无需重启即可用（应用进程环境变量在启动时冻结）。
+pub fn run_git(dir: &str, args: &[&str], shims: &std::path::Path) -> Result<(), AppError> {
     let mut cmd = std::process::Command::new("git");
     crate::domain::proc::hide_window(&mut cmd);
+    let current = std::env::var_os("PATH").map(|p| p.to_string_lossy().into_owned());
+    cmd.env(
+        "PATH",
+        crate::domain::proc::merge_path_prepend(current.as_deref(), &shims.display().to_string()),
+    );
     let output = cmd
         .args(["-C", dir])
         .args(args)
@@ -135,16 +144,29 @@ mod tests {
 
     #[test]
     fn run_git_roundtrip_in_temp_repo() {
+        // git 不在 PATH 时跳过（如未装 Scoop 环境的开发机）
+        let git_available = std::process::Command::new("git")
+            .arg("--version")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if !git_available {
+            eprintln!("skip: 未找到 git，跳过本测试");
+            return;
+        }
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().display().to_string();
-        run_git(&dir, &["init", "-q"]).unwrap();
-        run_git(&dir, &["remote", "add", "origin", "https://gitee.com/scoop-installer/Main"]).unwrap();
-        run_git(&dir, &["remote", "set-url", "origin", "https://github.com/ScoopInstaller/Main"]).unwrap();
+        let shims = tmp.path().join("shims");
+        run_git(&dir, &["init", "-q"], &shims).unwrap();
+        run_git(&dir, &["remote", "add", "origin", "https://gitee.com/scoop-installer/Main"], &shims).unwrap();
+        run_git(&dir, &["remote", "set-url", "origin", "https://github.com/ScoopInstaller/Main"], &shims).unwrap();
         let out = std::process::Command::new("git")
             .args(["-C", &dir, "remote", "get-url", "origin"])
             .output()
             .unwrap();
         assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "https://github.com/ScoopInstaller/Main");
-        assert!(run_git(&tmp.path().join("nope").display().to_string(), &["status"]).is_err());
+        assert!(run_git(&tmp.path().join("nope").display().to_string(), &["status"], &shims).is_err());
     }
 }

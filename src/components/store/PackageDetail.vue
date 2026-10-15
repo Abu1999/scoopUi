@@ -31,7 +31,7 @@
           <n-input v-model:value="version" size="small" placeholder="版本（留空 = 最新）" class="version" />
         </div>
         <div class="install-row">
-          <n-button type="primary" size="small" :disabled="busy" @click="doInstall">安装</n-button>
+          <n-button type="primary" size="small" @click="doInstall">安装</n-button>
           <span class="install-source">来自软件源 {{ pkg.bucket }}</span>
         </div>
       </div>
@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import {
   NButton,
   NDescriptions,
@@ -54,7 +54,6 @@ import AppIcon from "../app/AppIcon.vue";
 import type { PackageEntry } from "../../api/types";
 import { installPackage } from "../../api/commands";
 import { useAppsStore } from "../../stores/apps";
-import { useLogsStore } from "../../stores/logs";
 import { useRootsStore } from "../../stores/roots";
 import { useUiStore } from "../../stores/ui";
 import { runTask } from "../../utils/tasks";
@@ -63,33 +62,37 @@ import { registerInstall } from "../../utils/postinstall";
 const props = defineProps<{ pkg: PackageEntry | null }>();
 const message = useMessage();
 const apps = useAppsStore();
-const logs = useLogsStore();
 const roots = useRootsStore();
 const ui = useUiStore();
 const version = ref("");
-const busy = computed(() => logs.busy);
+const installing = ref(false);
 
 async function doInstall() {
-  if (busy.value) return;
+  if (installing.value) return;
   if (!props.pkg) return;
   const pkg = props.pkg;
   const ver = version.value.trim() === "" ? null : version.value.trim();
   ui.logDrawerOpen = true;
-  const record = await runTask(`安装 ${pkg.name}`, (taskId) =>
-    installPackage(pkg.name, pkg.bucket, ver, taskId),
-  );
-  if (record.success) {
-    const registered = await registerInstall(pkg.name);
-    message.success(
-      registered.length > 0 ? `已安装 ${pkg.name}（已注册右键菜单/文件关联）` : `已安装 ${pkg.name}`,
+  installing.value = true;
+  try {
+    const record = await runTask(`安装 ${pkg.name}`, (taskId) =>
+      installPackage(pkg.name, pkg.bucket, ver, taskId),
     );
-    await Promise.all([apps.load(), roots.load()]);
-  } else {
-    message.error(
-      record.hint
-        ? `安装失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
-        : `安装失败（退出码 ${record.code ?? "未知"}），详见任务日志`,
-    );
+    if (record.success) {
+      const registered = await registerInstall(pkg.name);
+      message.success(
+        registered.length > 0 ? `已安装 ${pkg.name}（已注册右键菜单/文件关联）` : `已安装 ${pkg.name}`,
+      );
+      await Promise.all([apps.load(), roots.load()]);
+    } else {
+      message.error(
+        record.hint
+          ? `安装失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
+          : `安装失败（退出码 ${record.code ?? "未知"}），详见任务日志`,
+      );
+    }
+  } finally {
+    installing.value = false;
   }
 }
 

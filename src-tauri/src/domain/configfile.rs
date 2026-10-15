@@ -3,33 +3,22 @@ use std::path::{Path, PathBuf};
 
 use crate::error::AppError;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConfigFile {
-    pub path: PathBuf,
-    pub portable: bool,
-}
-
-pub fn resolve(root: &Path, user_config_home: &Path) -> ConfigFile {
-    let portable = root.join("config.json");
-    if portable.is_file() {
-        ConfigFile { path: portable, portable: true }
-    } else {
-        ConfigFile {
-            path: user_config_home.join("scoop").join("config.json"),
-            portable: false,
-        }
-    }
+/// 解析环境配置文件：固定为环境目录内 `config.json`（Scoop 便携模式）。
+///
+/// 不再回退读写 `%USERPROFILE%\.config\scoop\config.json`——配置随环境目录
+/// 同装同删；文件缺失时由启动/接入流程负责创建（`bootstrap::ensure_env_config`）。
+pub fn resolve(root: &Path) -> PathBuf {
+    root.join("config.json")
 }
 
 pub fn load(path: &Path) -> Value {
-    match std::fs::read_to_string(path) {
-        Ok(text) => serde_json::from_str(&text).unwrap_or_else(|_| Value::Object(Default::default())),
-        Err(_) => Value::Object(Default::default()),
-    }
+    crate::domain::text::read_text(path)
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_else(|| Value::Object(Default::default()))
 }
 
 pub fn set_key(path: &Path, key: &str, value: Option<Value>) -> Result<(), AppError> {
-    let text = std::fs::read_to_string(path).ok();
+    let text = crate::domain::text::read_text(path);
     let trimmed = text.as_deref().map(str::trim).filter(|t| !t.is_empty());
     let parsed = trimmed.and_then(|t| serde_json::from_str::<Value>(t).ok());
     if trimmed.is_some() && parsed.as_ref().map(|v| !v.is_object()).unwrap_or(true) {
@@ -67,24 +56,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn prefers_portable_config() {
+    fn resolves_to_env_config_only() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path().join("scoop");
         std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(root.join("config.json"), "{}").unwrap();
-        let c = resolve(&root, tmp.path());
-        assert!(c.portable);
-        assert_eq!(c.path, root.join("config.json"));
-    }
-
-    #[test]
-    fn falls_back_to_user_config() {
-        let tmp = tempfile::tempdir().unwrap();
-        let root = tmp.path().join("scoop");
-        std::fs::create_dir_all(&root).unwrap();
-        let c = resolve(&root, tmp.path());
-        assert!(!c.portable);
-        assert_eq!(c.path, tmp.path().join("scoop").join("config.json"));
+        assert_eq!(resolve(&root), root.join("config.json"));
+        // 用户目录存在旧配置也不影响解析：只使用环境目录内文件
+        let user = tmp.path().join(".config").join("scoop");
+        std::fs::create_dir_all(&user).unwrap();
+        std::fs::write(user.join("config.json"), "{}").unwrap();
+        assert_eq!(resolve(&root), root.join("config.json"));
     }
 
     #[test]

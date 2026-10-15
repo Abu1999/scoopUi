@@ -1,6 +1,7 @@
 pub mod bootstrap;
 pub mod buckets;
 pub mod configfile;
+pub mod forcedelete;
 pub mod icons;
 pub mod index;
 pub mod installed;
@@ -14,5 +15,6 @@ pub mod registry;
 pub mod root;
 pub mod scoopcmd;
 pub mod scoopops;
+pub mod text;
 pub mod updates;
 pub mod versions;

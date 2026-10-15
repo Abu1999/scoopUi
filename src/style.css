@@ -35,3 +35,10 @@ body {
   background: var(--bg);
   color: var(--text);
 }
+
+/* 弹窗（NModal preset="card"）底部操作按钮：统一右对齐并保持间距 */
+.n-modal .n-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

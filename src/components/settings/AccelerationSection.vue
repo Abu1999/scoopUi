@@ -8,9 +8,9 @@
     </n-descriptions>
     <div class="row">
       <n-input v-model:value="proxyInput" size="small" class="input" placeholder="留空使用默认" />
-      <n-button size="small" :disabled="busy" @click="saveProxy">保存代理前缀</n-button>
-      <n-button size="small" :disabled="busy" @click="resetProxy">恢复默认</n-button>
-      <n-button size="small" :loading="testing" :disabled="busy" @click="test">连通测试</n-button>
+      <n-button size="small" @click="saveProxy">保存代理前缀</n-button>
+      <n-button size="small" @click="resetProxy">恢复默认</n-button>
+      <n-button size="small" :loading="testing" @click="test">连通测试</n-button>
     </div>
     <n-alert v-if="testResult" :type="exitAlertType" size="small" class="alert">
       <div>出口 IP：{{ testResult.exit_info ?? "未获取到" }}（{{ exitHint }}）</div>
@@ -23,7 +23,7 @@
     <h3>网络代理（proxy，host:port）</h3>
     <div class="row">
       <n-input v-model:value="plainProxyInput" size="small" class="input" placeholder="例如 127.0.0.1:7890，留空清除" />
-      <n-button size="small" :disabled="busy" @click="savePlainProxy">保存</n-button>
+      <n-button size="small" @click="savePlainProxy">保存</n-button>
     </div>
   </div>
 </template>
@@ -33,13 +33,10 @@ import { computed, ref, watch } from "vue";
 import { NAlert, NButton, NDescriptions, NDescriptionsItem, NInput, useMessage } from "naive-ui";
 import { setProxy, setUrlProxy, testUrlProxy } from "../../api/commands";
 import type { MirrorInfo, ProxyTest } from "../../api/types";
-import { useLogsStore } from "../../stores/logs";
 
 const props = defineProps<{ info: MirrorInfo }>();
 const emit = defineEmits<{ changed: [] }>();
 const message = useMessage();
-const logs = useLogsStore();
-const busy = computed(() => logs.busy);
 const proxyInput = ref(props.info.url_proxy ?? "");
 const plainProxyInput = ref(props.info.proxy ?? "");
 const testing = ref(false);
@@ -64,7 +61,6 @@ watch(
 );
 
 async function saveProxy() {
-  if (busy.value) return;
   try {
     await setUrlProxy(proxyInput.value.trim() === "" ? null : proxyInput.value);
     message.success("已保存 URL_PROXY");
@@ -75,7 +71,6 @@ async function saveProxy() {
 }
 
 async function resetProxy() {
-  if (busy.value) return;
   try {
     await setUrlProxy(null);
     proxyInput.value = "";
@@ -87,7 +82,6 @@ async function resetProxy() {
 }
 
 async function savePlainProxy() {
-  if (busy.value) return;
   try {
     await setProxy(plainProxyInput.value.trim() === "" ? null : plainProxyInput.value);
     message.success("已保存代理设置");
@@ -98,7 +92,6 @@ async function savePlainProxy() {
 }
 
 async function test() {
-  if (busy.value) return;
   testing.value = true;
   try {
     testResult.value = await testUrlProxy(proxyInput.value.trim() === "" ? null : proxyInput.value);

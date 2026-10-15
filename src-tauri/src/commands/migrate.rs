@@ -2,21 +2,21 @@ use std::path::PathBuf;
 
 use tauri::{AppHandle, State};
 
-use crate::commands::runner::spawn_command;
+use crate::commands::runner::spawn_command_scoped;
 use crate::commands::search::load_index;
 use crate::commands::{context, roots::resolve_scoop_dir};
 use crate::domain::migrate::{self, MigrationEntry};
 use crate::domain::registry::{self, RegistryApp};
 use crate::domain::scoopcmd::ScoopCommand;
 use crate::error::AppError;
-use crate::state::AppState;
+use crate::state::{AppState, TaskScope};
 
 fn known_roots(ctx: &crate::commands::Context, active: Option<&PathBuf>) -> Vec<PathBuf> {
     let mut roots: Vec<PathBuf> = Vec::new();
     if let Some(active) = active {
         roots.push(active.clone());
     }
-    roots.push(ctx.global_dir());
+    roots.push(ctx.global_dir(active.map(|p| p.as_path())));
     roots
 }
 
@@ -58,5 +58,6 @@ pub fn run_registry_uninstall(
         envs: vec![],
         display: format!("uninstall {entry_key}"),
     };
-    spawn_command(&app, &state, cmd, task_id)
+    // 第三方卸载器与 scoop 无关：按条目独立并发（同条目互斥）
+    spawn_command_scoped(&app, &state, cmd, task_id, TaskScope::App(entry_key), None)
 }

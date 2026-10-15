@@ -22,8 +22,25 @@ const RULES: Array<{ keys: string[]; hint: string }> = [
     hint: "权限不足：检查安装目录权限或以管理员身份运行",
   },
   {
+    keys: [
+      "being used by another process",
+      "used by another process",
+      "may be in use",
+      "still running",
+      "正在使用",
+      "被另一进程",
+      "被占用",
+      "占用中",
+    ],
+    hint: "文件被占用或程序正在运行：可使用弹窗中的强制删除（会先结束相关进程）",
+  },
+  {
     keys: ["already installed", "already exists", "conflict", "冲突"],
     hint: "先卸载同名应用再试",
+  },
+  {
+    keys: ["git is required", "scoop install git", "git not found", "couldn't find git"],
+    hint: "需要 git：先在商店安装 git（并确认网络可用），然后重试",
   },
 ];
 

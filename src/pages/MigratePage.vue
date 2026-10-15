@@ -36,7 +36,7 @@
             <span v-else class="hint">未匹配到软件包</span>
           </div>
           <div class="actions">
-            <n-button size="tiny" :disabled="busy || e.app.managed || e.matches.length === 0" @click="doInstall(e)">安装</n-button>
+            <n-button size="tiny" :disabled="e.app.managed || e.matches.length === 0" @click="doInstall(e)">安装</n-button>
             <n-button size="tiny" :disabled="e.matches.length === 0" @click="doView(e)">查看</n-button>
           </div>
         </div>
@@ -49,7 +49,6 @@
 import { computed, ref } from "vue";
 import { NAlert, NButton, NCheckbox, NTag, useMessage } from "naive-ui";
 import type { MigrationEntry, MigrationMatch } from "../api/types";
-import { useLogsStore } from "../stores/logs";
 import { useMigrateStore } from "../stores/migrate";
 import { useUiStore } from "../stores/ui";
 
@@ -60,9 +59,7 @@ interface Group {
 }
 
 const migrate = useMigrateStore();
-const logs = useLogsStore();
 const message = useMessage();
-const busy = computed(() => logs.busy);
 const uninstallFirst = ref(true);
 
 const groups = computed<Group[]>(() => {
@@ -91,13 +88,12 @@ function matchLabel(match: MigrationMatch): string {
 }
 
 async function doScan() {
-  if (busy.value) return;
   await migrate.scan();
 }
 
 async function doInstall(entry: MigrationEntry) {
   const match = entry.matches[0];
-  if (!match || busy.value) return;
+  if (!match) return;
   const result = await migrate.install(entry, match, uninstallFirst.value);
   if (result.ok) {
     if (result.warning) {

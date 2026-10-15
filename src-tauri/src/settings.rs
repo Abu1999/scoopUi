@@ -12,7 +12,7 @@ pub struct Settings {
 }
 
 pub fn legacy_active_root(dir: &Path) -> Option<String> {
-    let text = std::fs::read_to_string(dir.join("settings.json")).ok()?;
+    let text = crate::domain::text::read_text(&dir.join("settings.json"))?;
     let value: serde_json::Value = serde_json::from_str(&text).ok()?;
     value.get("active_root").and_then(|v| v.as_str())
         .filter(|s| !s.trim().is_empty()).map(|s| s.to_string())
@@ -20,15 +20,15 @@ pub fn legacy_active_root(dir: &Path) -> Option<String> {
 
 pub fn load(dir: &Path) -> Settings {
     let file = dir.join("settings.json");
-    match std::fs::read_to_string(&file) {
-        Ok(text) => match serde_json::from_str(&text) {
+    match crate::domain::text::read_text(&file) {
+        Some(text) => match serde_json::from_str(&text) {
             Ok(s) => s,
             Err(_) => {
                 let _ = std::fs::copy(&file, dir.join("settings.json.bak"));
                 Settings::default()
             }
         },
-        Err(_) => Settings::default(),
+        None => Settings::default(),
     }
 }
 

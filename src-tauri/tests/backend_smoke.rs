@@ -29,9 +29,9 @@ fn scans_real_environment() {
     assert!(!buckets.is_empty());
     assert!(buckets.iter().any(|b| b.manifest_count > 0));
 
-    let cfg = configfile::resolve(&root_path, &PathBuf::from(std::env::var_os("USERPROFILE").unwrap()).join(".config"));
-    let values = configfile::load(&cfg.path);
-    println!("config={} portable={}", cfg.path.display(), cfg.portable);
+    let cfg = configfile::resolve(&root_path);
+    let values = configfile::load(&cfg);
+    println!("config={}", cfg.display());
     assert!(values.is_object());
 }
 

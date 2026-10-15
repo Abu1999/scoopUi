@@ -17,10 +17,11 @@ pub struct ScoopConfig {
 pub fn get_scoop_config(state: State<'_, AppState>) -> Result<ScoopConfig, AppError> {
     let ctx = context();
     let root = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
-    let resolved = configfile::resolve(&root, &ctx.user_config_home);
+    let path = configfile::resolve(&root);
     Ok(ScoopConfig {
-        file_path: resolved.path.display().to_string(),
-        portable: resolved.portable,
-        values: configfile::load(&resolved.path),
+        file_path: path.display().to_string(),
+        // 配置固定位于环境目录内（Scoop 便携模式）
+        portable: true,
+        values: configfile::load(&path),
     })
 }

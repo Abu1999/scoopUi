@@ -13,51 +13,62 @@ pub mod runner;
 pub mod search;
 pub mod updates;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::paths;
 
 pub struct Context {
     pub appdata: PathBuf,
-    pub local_appdata: PathBuf,
     pub program_data: PathBuf,
+    /// 旧位置（`%USERPROFILE%\.config`）；仅删除环境时用于清理旧 `root_path` 残留。
+    #[cfg_attr(test, allow(dead_code))]
     pub user_config_home: PathBuf,
+    /// 配置/配置集/图标缓存所在目录（安装目录下 `data`，回退 `%APPDATA%\scoopui`）。
+    pub data_dir: PathBuf,
     pub env_global: Option<PathBuf>,
-    pub user_config: serde_json::Value,
 }
 
 pub fn context() -> Context {
     let home = std::env::var_os("USERPROFILE").map(PathBuf::from).unwrap_or_default();
     let appdata = std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_default();
-    let local_appdata = std::env::var_os("LOCALAPPDATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| appdata.clone());
     let program_data = std::env::var_os("ProgramData").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("C:\\ProgramData"));
     let user_config_home = paths::user_config_home(&home);
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(PathBuf::from));
+    let data_dir = paths::cached_data_dir(exe_dir.as_deref(), &appdata).to_path_buf();
     let env_global = std::env::var_os("SCOOP_GLOBAL").filter(|v| !v.is_empty()).map(PathBuf::from);
-    let user_config = crate::domain::configfile::load(&user_config_home.join("scoop").join("config.json"));
-    Context { appdata, local_appdata, program_data, user_config_home, env_global, user_config }
+    Context { appdata, program_data, user_config_home, data_dir, env_global }
 }
 
 impl Context {
-    pub fn config_global_path(&self) -> Option<PathBuf> {
-        self.user_config
-            .get("global_path")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(PathBuf::from)
-    }
-
     pub fn settings_dir(&self) -> PathBuf {
-        paths::settings_dir(&self.appdata)
+        self.data_dir.clone()
     }
 
-    pub fn global_dir(&self) -> PathBuf {
-        crate::domain::root::global_dir(
-            self.env_global.clone(),
-            self.config_global_path(),
-            &self.program_data,
-        )
+    /// 配置集目录（`<data>\profiles`）。
+    pub fn profiles_dir(&self) -> PathBuf {
+        paths::profiles_dir(&self.data_dir)
+    }
+
+    /// 图标缓存目录（`<data>\icons`）。
+    pub fn icon_cache_dir(&self) -> PathBuf {
+        paths::icon_cache_dir(&self.data_dir)
+    }
+
+    /// 全局应用目录：`SCOOP_GLOBAL` 优先，其次环境配置（`<环境目录>\config.json`）
+    /// 的 `global_path`，最后回退 `%ProgramData%\scoop`。
+    pub fn global_dir(&self, root: Option<&Path>) -> PathBuf {
+        let config_global_path = root
+            .map(|r| crate::domain::configfile::load(&crate::domain::configfile::resolve(r)))
+            .and_then(|config| {
+                config
+                    .get("global_path")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(PathBuf::from)
+            });
+        crate::domain::root::global_dir(self.env_global.clone(), config_global_path, &self.program_data)
     }
 }
 

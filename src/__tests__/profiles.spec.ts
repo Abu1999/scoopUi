@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   applyProfileSettings: vi.fn(),
   bucketAdd: vi.fn(),
   installPackage: vi.fn(),
+  refreshPackageIndex: vi.fn().mockResolvedValue(0),
+  searchPackages: vi.fn().mockResolvedValue([]),
   uninstallPackage: vi.fn(),
   listInstalledApps: vi.fn(),
   listBuckets: vi.fn(),
@@ -109,9 +111,11 @@ describe("profiles store", () => {
     expect(store.steps.map((s) => s.status)).toEqual(["success", "success", "success"]);
     expect(mocks.listInstalledApps).toHaveBeenCalled();
     expect(mocks.profileDiff).toHaveBeenCalledTimes(2);
+    // 新增了软件源：应用后自动刷新商店离线索引
+    expect(mocks.refreshPackageIndex).toHaveBeenCalledTimes(1);
   });
 
-  it("apply 失败即停并标记剩余为待执行", async () => {
+  it("apply 单步失败不中断：记录原因并继续执行其余步骤", async () => {
     mocks.profileDiff.mockResolvedValue({
       ...emptyDiff,
       missing_apps: [
@@ -125,14 +129,19 @@ describe("profiles store", () => {
     store.detail = profileFixture;
     const running = store.apply(false);
     await flushPromises();
-    const taskId = mocks.installPackage.mock.calls[0][3];
-    useLogsStore().end({ taskId, code: 1, success: false });
+    const firstTask = mocks.installPackage.mock.calls[0][3];
+    useLogsStore().end({ taskId: firstTask, code: 1, success: false });
+    await flushPromises();
+    // 第一步失败后，第二步仍会执行
+    const secondTask = mocks.installPackage.mock.calls[1][3];
+    useLogsStore().end({ taskId: secondTask, code: 0, success: true });
     await flushPromises();
     expect(await running).toBe(false);
+    expect(mocks.installPackage).toHaveBeenCalledTimes(2);
     expect(store.steps[0].status).toBe("failed");
-    expect(store.steps[1].status).toBe("skipped");
-    expect(mocks.installPackage).toHaveBeenCalledTimes(1);
-    expect(store.applyError).toContain("退出码 1");
+    expect(store.steps[0].error).toContain("退出码 1");
+    expect(store.steps[1].status).toBe("success");
+    expect(store.applyError).toContain("1 个步骤失败");
   });
 
   it("saveFromCurrent 调用命令并刷新", async () => {

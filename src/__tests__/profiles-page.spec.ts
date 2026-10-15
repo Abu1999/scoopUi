@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   applyProfileSettings: vi.fn(),
   bucketAdd: vi.fn(),
   installPackage: vi.fn(),
+  refreshPackageIndex: vi.fn().mockResolvedValue(0),
+  searchPackages: vi.fn().mockResolvedValue([]),
   uninstallPackage: vi.fn(),
   listInstalledApps: vi.fn(),
   listBuckets: vi.fn(),

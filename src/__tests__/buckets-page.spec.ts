@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   bucketAdd: vi.fn().mockResolvedValue(undefined),
   bucketRemove: vi.fn().mockResolvedValue(undefined),
   updatePackage: vi.fn().mockResolvedValue(undefined),
+  refreshPackageIndex: vi.fn().mockResolvedValue(0),
+  searchPackages: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../api/commands", () => mocks);
 
@@ -58,6 +60,8 @@ describe("BucketsPage 操作", () => {
     useLogsStore().end({ taskId, code: 0, success: true });
     await flushPromises();
     expect(mocks.listBuckets).toHaveBeenCalledTimes(2);
+    // 软件源变化后自动刷新商店离线索引
+    expect(mocks.refreshPackageIndex).toHaveBeenCalledTimes(1);
   });
 
   it("已知软件源仓库留空时传 null", async () => {

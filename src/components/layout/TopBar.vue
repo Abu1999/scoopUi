@@ -7,7 +7,6 @@
       </span>
       <span v-if="roots.env" class="count">{{ roots.env.app_count }} 应用</span>
       <n-tag v-if="roots.env && !roots.env.valid" type="error" size="small">无效</n-tag>
-      <n-tag v-if="roots.env?.has_portable_config" size="small" type="warning">便携配置</n-tag>
     </div>
     <div class="right">
       <n-button size="small" :loading="anyLoading" @click="refresh">刷新</n-button>

@@ -33,14 +33,14 @@
           </div>
           <div class="actions">
             <n-button size="small" :disabled="busy" @click="openApply">应用</n-button>
-            <n-button size="small" :disabled="busy" @click="doExport">导出</n-button>
-            <n-button size="small" :disabled="busy" @click="openRename">重命名</n-button>
+            <n-button size="small" @click="doExport">导出</n-button>
+            <n-button size="small" @click="openRename">重命名</n-button>
             <n-popconfirm
-              :positive-button-props="{ disabled: busy, type: 'error' }"
+              :positive-button-props="{ type: 'error' }"
               @positive-click="doDelete"
             >
               <template #trigger>
-                <n-button size="small" type="error" :disabled="busy">删除</n-button>
+                <n-button size="small" type="error">删除</n-button>
               </template>
               确定删除配置集 {{ profiles.detail.name }}？
             </n-popconfirm>
@@ -141,7 +141,10 @@
       </div>
       <div v-for="s in profiles.steps" :key="s.key" class="step" :class="s.status">
         <span class="status">{{ statusText(s.status) }}</span>
-        <span>{{ s.label }}</span>
+        <span class="step-body">
+          {{ s.label }}
+          <span v-if="s.error" class="step-error">—— {{ s.error }}</span>
+        </span>
       </div>
       <n-checkbox v-model:checked="uninstallExtra" :disabled="profiles.applying">同时卸载多余应用</n-checkbox>
       <n-alert v-if="profiles.applyError" type="error" size="small" class="alert">{{ profiles.applyError }}</n-alert>
@@ -433,6 +436,15 @@ async function doApply() {
   width: 48px;
   flex-shrink: 0;
   color: var(--text-dim);
+}
+.step-body {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+.step-error {
+  color: #d03050;
+  font-size: 12px;
 }
 .step.success .status {
   color: #18a058;

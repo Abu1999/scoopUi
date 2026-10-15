@@ -63,12 +63,14 @@ pub fn adopt_scoop_dir(path: String, state: State<'_, AppState>) -> Result<RootI
     adopt_inner(&ctx, &state, &p)?;
     #[cfg(not(test))]
     {
-        let _ = crate::domain::bootstrap::write_root_path_config(&ctx.user_config_home, &p);
+        let _ = crate::domain::bootstrap::set_env_root_path(&p);
     }
     Ok(root::info(&p))
 }
 
 pub fn move_scoop_dir_inner(ctx: &Context, state: &AppState, new_dir: &Path) -> Result<RootInfo, AppError> {
+    // 任务运行中迁移会撕裂正在写入的环境，直接拒绝（前端按钮也会禁用）。
+    crate::commands::runner::ensure_no_tasks(&state.tasks.lock().unwrap())?;
     let current = resolve_scoop_dir(ctx, state).ok_or(AppError::NoRoot)?;
     if root::normalized(new_dir) == root::normalized(&current) {
         return Ok(root::info(&current));
@@ -112,7 +114,7 @@ pub fn move_scoop_dir_inner(ctx: &Context, state: &AppState, new_dir: &Path) -> 
         let _ = crate::domain::bootstrap::add_shims_to_user_path(&new_dir.join("shims"));
         let _ = crate::domain::bootstrap::set_user_env("SCOOP", &new_dir.display().to_string());
         let _ = crate::domain::bootstrap::mark_scoop_dir(new_dir);
-        let _ = crate::domain::bootstrap::write_root_path_config(&ctx.user_config_home, new_dir);
+        let _ = crate::domain::bootstrap::set_env_root_path(new_dir);
     }
     let mut s = settings::load(&ctx.settings_dir());
     s.scoop_dir = Some(new_dir.display().to_string());
@@ -128,19 +130,134 @@ pub fn move_scoop_dir(new_dir: String, state: State<'_, AppState>) -> Result<Roo
 }
 
 pub fn remove_scoop_env_inner(ctx: &Context, state: &AppState) -> Result<String, AppError> {
+    // 任务运行中删除会撕裂正在写入的环境，直接拒绝（前端按钮也会禁用）。
+    crate::commands::runner::ensure_no_tasks(&state.tasks.lock().unwrap())?;
     let dir = resolve_scoop_dir(ctx, state).ok_or(AppError::NoRoot)?;
+    // 先回放各应用自带的 uninstall-*.reg：清掉右键菜单/文件关联（依赖目录内的脚本文件）。
+    let _ = crate::domain::postinstall::run_uninstall_regs(&dir);
     if dir.exists() { std::fs::remove_dir_all(&dir)?; }
+    finish_env_removal(ctx, state, &dir)?;
+    Ok(dir.display().to_string())
+}
+
+/// 删除环境后的收尾：清 PATH/快捷方式/SCOOP/root_path/标记与设置。
+fn finish_env_removal(ctx: &Context, state: &AppState, dir: &Path) -> Result<(), AppError> {
     #[cfg(not(test))]
     {
-        let _ = crate::domain::bootstrap::remove_shims_from_user_path(&dir.join("shims"));
+        // 清掉用户 PATH 中指向该环境的所有条目（shims 与各应用的 env_add_path 目录）。
+        let _ = crate::domain::bootstrap::remove_paths_under_from_user_path(dir);
         let _ = crate::domain::bootstrap::remove_user_env("SCOOP");
         let _ = crate::domain::bootstrap::clear_scoop_dir();
+        // 清掉 .config\scoop\config.json 里的 root_path，避免残留指向已删除的目录。
+        let _ = crate::domain::bootstrap::remove_root_path_config(&ctx.user_config_home);
+        // 删除开始菜单「Scoop Apps」快捷方式，避免留下指向已删除应用的死链接。
+        let _ = crate::domain::bootstrap::remove_startmenu_shortcuts(&ctx.appdata);
     }
+    #[cfg(test)]
+    let _ = dir;
     let mut s = settings::load(&ctx.settings_dir());
     s.scoop_dir = None;
     settings::save(&ctx.settings_dir(), &s)?;
     *state.scoop_dir.lock().unwrap() = None;
-    Ok(dir.display().to_string())
+    Ok(())
+}
+
+/// 文件占用者信息（前端确认弹窗展示用）。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct LockHolderInfo {
+    pub pid: u32,
+    pub name: String,
+    pub is_explorer: bool,
+}
+
+/// 环境删除被占用时的详情：无法直接删除的文件与占用它们的进程。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EnvLockInfo {
+    pub remaining_files: Vec<String>,
+    pub holders: Vec<LockHolderInfo>,
+}
+
+#[tauri::command(async)]
+pub fn env_lock_info(state: State<'_, AppState>) -> Result<EnvLockInfo, AppError> {
+    let ctx = context();
+    let dir = resolve_scoop_dir(&ctx, &state).ok_or(AppError::NoRoot)?;
+    let files = crate::domain::forcedelete::blocked_files_under(&dir, 200);
+    let holders = crate::domain::forcedelete::lock_holders(&files)
+        .into_iter()
+        .map(|h| LockHolderInfo {
+            pid: h.pid,
+            name: h.name.clone(),
+            is_explorer: h.is_explorer(),
+        })
+        .collect();
+    Ok(EnvLockInfo {
+        remaining_files: files.iter().map(|p| p.display().to_string()).collect(),
+        holders,
+    })
+}
+
+/// 强制删除环境：回放回滚脚本 → 尝试删除 → 结束占用进程（explorer 随后自动拉起）→ 重试。
+///
+/// 「被加载的 DLL」这类占用无法通过打开探测发现（映像映射会拒绝删除但允许打开），
+/// 因此以「实际删除后剩余的条目」为准去查占用进程。
+/// 返回仍未能删除的条目（正常为空）；非空时不动设置与 PATH，便于用户稍后重试。
+pub fn force_remove_scoop_env_inner(
+    ctx: &Context,
+    state: &AppState,
+) -> Result<Vec<String>, AppError> {
+    use crate::domain::forcedelete;
+
+    // 任务运行中强制删除同样拒绝（不能杀正在下载的进程）。
+    crate::commands::runner::ensure_no_tasks(&state.tasks.lock().unwrap())?;
+    let dir = resolve_scoop_dir(ctx, state).ok_or(AppError::NoRoot)?;
+    // 先回放 uninstall-*.reg（清右键菜单/文件关联/扩展 CLSID），再结束占用进程；
+    // 顺序保证新拉起的资源管理器不会重新加载已注销的扩展。
+    let _ = crate::domain::postinstall::run_uninstall_regs(&dir);
+
+    let first = forcedelete::remove_tree_force(&dir);
+    if first.removed {
+        finish_env_removal(ctx, state, &dir)?;
+        return Ok(Vec::new());
+    }
+    let locked_files: Vec<std::path::PathBuf> = first
+        .remaining
+        .iter()
+        .filter(|p| p.is_file())
+        .cloned()
+        .collect();
+    let candidates = if locked_files.is_empty() {
+        forcedelete::blocked_files_under(&dir, 200)
+    } else {
+        locked_files
+    };
+    let holders = forcedelete::lock_holders(&candidates);
+    let had_explorer = holders.iter().any(|h| h.is_explorer());
+    for holder in &holders {
+        let _ = crate::domain::scoopcmd::kill_tree(holder.pid);
+    }
+    if had_explorer {
+        crate::domain::proc::restart_explorer();
+    }
+    if !holders.is_empty() {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+    }
+
+    let second = forcedelete::remove_tree_force(&dir);
+    if second.removed {
+        finish_env_removal(ctx, state, &dir)?;
+        return Ok(Vec::new());
+    }
+    Ok(second
+        .remaining
+        .iter()
+        .map(|p| p.display().to_string())
+        .collect())
+}
+
+#[tauri::command(async)]
+pub fn force_remove_scoop_env(state: State<'_, AppState>) -> Result<Vec<String>, AppError> {
+    let ctx = context();
+    force_remove_scoop_env_inner(&ctx, &state)
 }
 
 #[tauri::command(async)]
@@ -226,11 +343,10 @@ mod tests {
     fn make_ctx(base: &Path) -> Context {
         Context {
             appdata: base.join("appdata"),
-            local_appdata: base.join("localappdata"),
             program_data: base.join("programdata"),
             user_config_home: base.join("home").join(".config"),
+            data_dir: base.join("data"),
             env_global: None,
-            user_config: serde_json::json!({}),
         }
     }
 

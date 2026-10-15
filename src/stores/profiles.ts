@@ -18,6 +18,7 @@ import { registerInstall } from "../utils/postinstall";
 import { runTask } from "../utils/tasks";
 import { useAppsStore } from "./apps";
 import { useBucketsStore } from "./buckets";
+import { usePackagesStore } from "./packages";
 import { useUiStore } from "./ui";
 
 export type ApplyStepStatus = "pending" | "running" | "success" | "failed" | "skipped";
@@ -26,6 +27,8 @@ export interface ApplyStep {
   key: string;
   label: string;
   status: ApplyStepStatus;
+  /** 失败原因（仅失败步骤有值） */
+  error?: string | null;
 }
 
 function runTaskFor(step: ApplyStep, diff: ProfileDiff) {
@@ -181,12 +184,9 @@ export const useProfilesStore = defineStore("profiles", {
       this.applyError = null;
       this.applying = true;
       useUiStore().logDrawerOpen = true;
-      let failed = false;
+      let failedCount = 0;
+      let bucketsAdded = false;
       for (const step of this.steps) {
-        if (failed) {
-          step.status = "skipped";
-          continue;
-        }
         step.status = "running";
         if (step.key === "settings") {
           try {
@@ -194,32 +194,39 @@ export const useProfilesStore = defineStore("profiles", {
             step.status = "success";
           } catch (e) {
             step.status = "failed";
-            this.applyError = String(e);
-            failed = true;
+            step.error = String(e);
+            failedCount += 1;
           }
           continue;
         }
         const record = await runTaskFor(step, diff);
         if (record.success) {
           step.status = "success";
+          if (step.key.startsWith("bucket:")) {
+            bucketsAdded = true;
+          }
           if (step.key.startsWith("install:")) {
             const app = diff.missing_apps.find((a) => step.key === `install:${a.name}`);
             if (app) await registerInstall(app.name);
           }
         } else {
           step.status = "failed";
-          this.applyError = record.hint
-            ? `步骤失败（退出码 ${record.code ?? "未知"}）：${record.hint}`
-            : `步骤失败（退出码 ${record.code ?? "未知"}）`;
-          failed = true;
+          step.error = record.hint ?? `退出码 ${record.code ?? "未知"}`;
+          failedCount += 1;
         }
       }
       this.applying = false;
-      if (!failed) {
-        await Promise.all([useAppsStore().load(), useBucketsStore().load()]);
-        await this.refreshDiff();
+      // 单步失败不中断：失败步骤展示原因，其余步骤照常执行；统一刷新状态与差异
+      await Promise.all([useAppsStore().load(), useBucketsStore().load()]);
+      // 新增了软件源：同步刷新商店离线索引，新源的清单立即可搜
+      if (bucketsAdded) {
+        await usePackagesStore().refresh();
       }
-      return !failed;
+      await this.refreshDiff();
+      if (failedCount > 0) {
+        this.applyError = `共 ${failedCount} 个步骤失败（其余步骤已继续执行）`;
+      }
+      return failedCount === 0;
     },
   },
 });

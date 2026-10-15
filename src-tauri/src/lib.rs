@@ -7,17 +7,33 @@ mod state;
 
 pub use error::AppError;
 
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(state::AppState::default())
+        .setup(|app| {
+            // 首次以新布局启动时，把旧 %APPDATA%\scoopui 下的配置与配置集迁入数据目录。
+            let ctx = commands::context();
+            let legacy = paths::settings_dir(&ctx.appdata);
+            let _ = paths::migrate_legacy_data(&legacy, &ctx.data_dir);
+            // 环境配置固定位于环境目录内（Scoop 便携模式）：缺失时补建最小配置。
+            let state = app.state::<state::AppState>();
+            if let Some(root) = commands::roots::resolve_scoop_dir(&ctx, &state) {
+                let _ = domain::bootstrap::ensure_env_config(&root);
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::roots::get_scoop_env,
             commands::roots::adopt_scoop_dir,
             commands::roots::move_scoop_dir,
             commands::roots::remove_scoop_env,
+            commands::roots::env_lock_info,
+            commands::roots::force_remove_scoop_env,
             commands::apps::list_installed_apps,
             commands::buckets::list_buckets,
             commands::buckets::list_known_buckets,
@@ -30,6 +46,8 @@ pub fn run() {
             commands::icons::fetch_icon,
             commands::ops::install_package,
             commands::ops::uninstall_package,
+            commands::ops::force_uninstall_package,
+            commands::ops::list_app_processes,
             commands::ops::update_package,
             commands::ops::set_hold,
             commands::ops::bucket_add,

@@ -7,17 +7,14 @@
       </n-descriptions-item>
     </n-descriptions>
     <div class="row">
-      <n-button v-if="!installed" size="small" :disabled="busy" @click="installAria2">
-        安装 aria2
-      </n-button>
+      <n-button v-if="!installed" size="small" @click="installAria2">安装 aria2</n-button>
       <template v-else>
-        <n-checkbox v-model:checked="enabled" :disabled="busy">启用 aria2</n-checkbox>
+        <n-checkbox v-model:checked="enabled">启用 aria2</n-checkbox>
         <n-input-number
           v-model:value="split"
           size="small"
           :min="1"
           :max="64"
-          :disabled="busy"
           placeholder="5"
           class="num"
         />
@@ -27,19 +24,18 @@
           size="small"
           :min="1"
           :max="64"
-          :disabled="busy"
           placeholder="5"
           class="num"
         />
         <span class="label">单服务器连接</span>
-        <n-button size="small" :disabled="busy" @click="save">保存 aria2 设置</n-button>
+        <n-button size="small" @click="save">保存 aria2 设置</n-button>
       </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import {
   NButton,
   NCheckbox,
@@ -50,16 +46,13 @@ import {
 } from "naive-ui";
 import { installPackage, setAria2 } from "../../api/commands";
 import type { MirrorInfo } from "../../api/types";
-import { useLogsStore } from "../../stores/logs";
 import { useUiStore } from "../../stores/ui";
 import { runTask } from "../../utils/tasks";
 
 const props = defineProps<{ info: MirrorInfo }>();
 const emit = defineEmits<{ changed: [] }>();
 const message = useMessage();
-const logs = useLogsStore();
 const ui = useUiStore();
-const busy = computed(() => logs.busy);
 const installed = ref(props.info.aria2_installed);
 const enabled = ref(props.info.aria2_enabled);
 const split = ref<number | null>(props.info.aria2_split);
@@ -76,7 +69,6 @@ watch(
 );
 
 async function installAria2() {
-  if (busy.value) return;
   ui.logDrawerOpen = true;
   const record = await runTask("安装 aria2", (taskId) =>
     installPackage("aria2", null, null, taskId),
@@ -95,7 +87,6 @@ async function installAria2() {
 }
 
 async function save() {
-  if (busy.value) return;
   try {
     await setAria2(enabled.value, split.value ?? null, maxConn.value ?? null);
     message.success("已保存 aria2 设置");

@@ -48,7 +48,7 @@ pub fn build(buckets_dir: &Path) -> Vec<PackageEntry> {
             let Some(name) = file.file_stem().map(|s| s.to_string_lossy().to_string()) else {
                 continue;
             };
-            let Ok(text) = std::fs::read_to_string(&file) else {
+            let Some(text) = crate::domain::text::read_text(&file) else {
                 continue;
             };
             let Ok(m) = manifest::parse(&text) else {

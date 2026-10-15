@@ -1,5 +1,11 @@
 import { defineStore } from "pinia";
-import { adoptScoopDir, getScoopEnv, moveScoopDir, removeScoopEnv } from "../api/commands";
+import {
+  adoptScoopDir,
+  forceRemoveScoopEnv,
+  getScoopEnv,
+  moveScoopDir,
+  removeScoopEnv,
+} from "../api/commands";
 import type { ScoopEnvInfo } from "../api/types";
 
 export const useRootsStore = defineStore("roots", {
@@ -29,6 +35,14 @@ export const useRootsStore = defineStore("roots", {
     async remove() {
       await removeScoopEnv();
       this.env = null;
+    },
+    /** 强制删除环境；返回仍未能删除的条目（正常为空数组）。 */
+    async forceRemove(): Promise<string[]> {
+      const remaining = await forceRemoveScoopEnv();
+      if (remaining.length === 0) {
+        this.env = null;
+      }
+      return remaining;
     },
   },
 });

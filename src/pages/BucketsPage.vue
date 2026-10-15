@@ -56,6 +56,7 @@ import { NAlert, NButton, NInput, NPopconfirm, NSelect, NTable, useMessage } fro
 import { bucketAdd, bucketRemove, listKnownBuckets, updatePackage } from "../api/commands";
 import { useBucketsStore } from "../stores/buckets";
 import { useLogsStore } from "../stores/logs";
+import { usePackagesStore } from "../stores/packages";
 import { useRootsStore } from "../stores/roots";
 import { useUiStore } from "../stores/ui";
 import { runTask } from "../utils/tasks";
@@ -90,6 +91,8 @@ async function reload() {
 async function afterTask(record: TaskRecord) {
   if (record.success) {
     await reload();
+    // 软件源增删/更新后清单已变化：同步刷新商店离线索引
+    await usePackagesStore().refresh();
   } else {
     message.error(
       record.hint

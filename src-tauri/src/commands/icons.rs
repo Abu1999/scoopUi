@@ -4,7 +4,6 @@ use crate::commands::context;
 use crate::commands::roots::resolve_scoop_dir;
 use crate::domain::{configfile, icons};
 use crate::error::AppError;
-use crate::paths;
 use crate::state::AppState;
 
 pub(crate) async fn fetch_icon_inner(
@@ -25,11 +24,11 @@ pub async fn fetch_icon(
     source: String,
 ) -> Result<Option<String>, AppError> {
     let ctx = context();
-    let cache_dir = paths::icon_cache_dir(&ctx.local_appdata);
+    let cache_dir = ctx.icon_cache_dir();
     let proxy = resolve_scoop_dir(&ctx, &state)
-        .map(|root| configfile::resolve(&root, &ctx.user_config_home))
-        .and_then(|cfg| {
-            configfile::load(&cfg.path)
+        .map(|root| configfile::resolve(&root))
+        .and_then(|path| {
+            configfile::load(&path)
                 .get("url_proxy")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())

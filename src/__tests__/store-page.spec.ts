@@ -102,12 +102,15 @@ describe("StorePage", () => {
     expect(mocks.searchPackages).toHaveBeenLastCalledWith("git", 50);
   });
 
-  it("可切换列表/卡片视图", async () => {
+  it("默认卡片视图，可切换列表/卡片", async () => {
     const wrapper = mount(StorePage);
     await flushPromises();
+    expect(wrapper.find(".results.grid").exists()).toBe(true);
+    const listButton = wrapper.findAll("button").find((b) => b.text().includes("列表"));
+    expect(listButton).toBeTruthy();
+    await listButton!.trigger("click");
     expect(wrapper.find(".results.list").exists()).toBe(true);
     const gridButton = wrapper.findAll("button").find((b) => b.text().includes("卡片"));
-    expect(gridButton).toBeTruthy();
     await gridButton!.trigger("click");
     expect(wrapper.find(".results.grid").exists()).toBe(true);
   });
@@ -115,8 +118,9 @@ describe("StorePage", () => {
   it("点击结果切换详情", async () => {
     const wrapper = mount(StorePage);
     await flushPromises();
-    const rows = wrapper.findAll(".row");
-    await rows[1].trigger("click");
+    const cards = wrapper.findAll(".card");
+    expect(cards.length).toBe(2);
+    await cards[1].trigger("click");
     expect(wrapper.find(".detail").text()).toContain("git-lfs");
   });
 
@@ -170,7 +174,7 @@ describe("StorePage", () => {
     expect(mocks.searchPackages).toHaveBeenLastCalledWith("", 100);
   });
 
-  it("不足以滚动时切换卡片视图会自动继续加载", async () => {
+  it("不足以滚动时切换视图会自动继续加载", async () => {
     mocks.searchPackages.mockResolvedValueOnce(list(50));
     mocks.searchPackages.mockResolvedValueOnce(list(60));
     const wrapper = mount(StorePage);
@@ -179,8 +183,8 @@ describe("StorePage", () => {
     const scroller = wrapper.find(".results").element as HTMLElement;
     Object.defineProperty(scroller, "clientHeight", { value: 600, configurable: true });
     Object.defineProperty(scroller, "scrollHeight", { value: 500, configurable: true });
-    const gridButton = wrapper.findAll("button").find((b) => b.text().includes("卡片"));
-    await gridButton!.trigger("click");
+    const listButton = wrapper.findAll("button").find((b) => b.text().includes("列表"));
+    await listButton!.trigger("click");
     await flushPromises();
     expect(mocks.searchPackages).toHaveBeenLastCalledWith("", 100);
   });

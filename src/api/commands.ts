@@ -1,7 +1,9 @@
 import type {
+  AppProcessInfo,
   AppSettings,
   BucketInfo,
   BundleInfo,
+  EnvLockInfo,
   FinalizeResult,
   InstalledApp,
   MigrationEntry,
@@ -23,6 +25,8 @@ export const getScoopEnv = () => invoke<ScoopEnvInfo | null>("get_scoop_env");
 export const adoptScoopDir = (path: string) => invoke<ScoopEnvInfo>("adopt_scoop_dir", { path });
 export const moveScoopDir = (newDir: string) => invoke<ScoopEnvInfo>("move_scoop_dir", { newDir });
 export const removeScoopEnv = () => invoke<string>("remove_scoop_env");
+export const envLockInfo = () => invoke<EnvLockInfo>("env_lock_info");
+export const forceRemoveScoopEnv = () => invoke<string[]>("force_remove_scoop_env");
 export const listInstalledApps = () => invoke<InstalledApp[]>("list_installed_apps");
 export const listBuckets = () => invoke<BucketInfo[]>("list_buckets");
 export const getScoopConfig = () => invoke<ScoopConfig>("get_scoop_config");
@@ -41,6 +45,10 @@ export const installPackage = (
 ) => invoke<void>("install_package", { name, bucket, version, taskId });
 export const uninstallPackage = (name: string, purge: boolean, taskId: string) =>
   invoke<void>("uninstall_package", { name, purge, taskId });
+export const forceUninstallPackage = (name: string, purge: boolean, taskId: string) =>
+  invoke<void>("force_uninstall_package", { name, purge, taskId });
+export const listAppProcesses = (name: string) =>
+  invoke<AppProcessInfo[]>("list_app_processes", { name });
 export const updatePackage = (name: string | null, all: boolean, taskId: string) =>
   invoke<void>("update_package", { name, all, taskId });
 export const setHold = (name: string, hold: boolean, taskId: string) =>

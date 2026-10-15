@@ -19,17 +19,17 @@
       <div class="actions">
         <n-button v-if="app.homepage" size="small" @click="openHomepage">打开主页</n-button>
         <n-button size="small" @click="openDir">打开安装目录</n-button>
-        <n-button size="small" :disabled="busy" @click="doUpdate">更新</n-button>
+        <n-button size="small" @click="doUpdate">更新</n-button>
         <n-popconfirm
-          :positive-button-props="{ disabled: busy, type: 'error' }"
+          :positive-button-props="{ type: 'error' }"
           @positive-click="doUninstall"
         >
           <template #trigger>
-            <n-button size="small" type="error" :disabled="busy">卸载</n-button>
+            <n-button size="small" type="error">卸载</n-button>
           </template>
           确定卸载 {{ app.name }}？程序文件将被删除（持久化数据保留）。
         </n-popconfirm>
-        <n-button size="small" :disabled="busy" @click="toggleHold">
+        <n-button size="small" @click="toggleHold">
           {{ app.hold ? "解除锁定" : "锁定" }}
         </n-button>
       </div>
@@ -49,18 +49,49 @@
         <div v-for="p in app.persist" :key="p" class="persist">{{ p }}</div>
       </div>
     </template>
+
+    <n-modal
+      v-model:show="showForceUninstall"
+      preset="card"
+      title="应用未能完全卸载"
+      style="width: 480px; max-width: 92vw"
+    >
+      <div class="force-tip">
+        卸载未完成（可能应用仍在运行，或文件被占用，如资源管理器加载的扩展）。
+        强制卸载将结束相关进程（必要时自动重启资源管理器）并清理残留文件：
+      </div>
+      <div v-for="p in appProcs" :key="p.pid" class="force-row">
+        <span class="force-name">{{ p.name || "未知进程" }}（PID {{ p.pid }}）</span>
+      </div>
+      <div v-if="appProcs.length === 0" class="force-row">
+        <span class="force-name">未检测到正在运行的进程（可能是文件被其他程序占用）</span>
+      </div>
+      <template #footer>
+        <n-button size="small" :disabled="forcingUninstall" @click="showForceUninstall = false">
+          取消
+        </n-button>
+        <n-button size="small" type="error" :loading="forcingUninstall" @click="doForceUninstall">
+          强制卸载
+        </n-button>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
-import { NButton, NDescriptions, NDescriptionsItem, NPopconfirm, NTag, useMessage } from "naive-ui";
+import { computed, ref } from "vue";
+import { NButton, NDescriptions, NDescriptionsItem, NModal, NPopconfirm, NTag, useMessage } from "naive-ui";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import AppIcon from "./AppIcon.vue";
-import type { InstalledApp } from "../../api/types";
-import { setHold, uninstallPackage, updatePackage } from "../../api/commands";
+import type { AppProcessInfo, InstalledApp } from "../../api/types";
+import {
+  forceUninstallPackage,
+  listAppProcesses,
+  setHold,
+  uninstallPackage,
+  updatePackage,
+} from "../../api/commands";
 import { useAppsStore } from "../../stores/apps";
-import { useLogsStore } from "../../stores/logs";
 import { useRootsStore } from "../../stores/roots";
 import { useUiStore } from "../../stores/ui";
 import { runTask } from "../../utils/tasks";
@@ -69,11 +100,15 @@ import type { TaskRecord } from "../../stores/logs";
 const props = defineProps<{ app: InstalledApp | null }>();
 const message = useMessage();
 const apps = useAppsStore();
-const logs = useLogsStore();
 const roots = useRootsStore();
 const ui = useUiStore();
-const busy = computed(() => logs.busy);
 const update = computed(() => (props.app ? apps.updateFor(props.app) : null));
+const showForceUninstall = ref(false);
+const appProcs = ref<AppProcessInfo[]>([]);
+const forcingUninstall = ref(false);
+const pendingUninstall = ref<string | null>(null);
+/** 本组件操作重入保护（防双击重复发起；跨应用并发不受影响） */
+const acting = ref(false);
 
 async function afterTask(record: TaskRecord) {
   if (record.success) {
@@ -88,33 +123,82 @@ async function afterTask(record: TaskRecord) {
 }
 
 async function doUpdate() {
-  if (busy.value) return;
+  if (acting.value) return;
   if (!props.app) return;
   const name = props.app.name;
   ui.logDrawerOpen = true;
-  const record = await runTask(`更新 ${name}`, (taskId) => updatePackage(name, false, taskId));
-  await afterTask(record);
+  acting.value = true;
+  try {
+    const record = await runTask(`更新 ${name}`, (taskId) => updatePackage(name, false, taskId));
+    await afterTask(record);
+  } finally {
+    acting.value = false;
+  }
 }
 
 async function doUninstall() {
-  if (busy.value) return;
+  if (acting.value) return;
   if (!props.app) return;
   const name = props.app.name;
   ui.logDrawerOpen = true;
-  const record = await runTask(`卸载 ${name}`, (taskId) => uninstallPackage(name, false, taskId));
-  await afterTask(record);
+  acting.value = true;
+  try {
+    const record = await runTask(`卸载 ${name}`, (taskId) => uninstallPackage(name, false, taskId));
+    await afterTask(record);
+    if (!record.success) return;
+    // Scoop 检测到进程在运行/文件被占用时会打印警告但退出码仍为 0，
+    // 因此以「应用是否真的从列表消失」判断，未消失则引导强制卸载。
+    if (!apps.apps.some((a) => a.name.toLowerCase() === name.toLowerCase())) return;
+    try {
+      appProcs.value = await listAppProcesses(name);
+    } catch {
+      appProcs.value = [];
+    }
+    pendingUninstall.value = name;
+    showForceUninstall.value = true;
+  } finally {
+    acting.value = false;
+  }
+}
+
+async function doForceUninstall() {
+  const name = pendingUninstall.value;
+  if (!name || forcingUninstall.value) return;
+  forcingUninstall.value = true;
+  ui.logDrawerOpen = true;
+  try {
+    const record = await runTask(`强制卸载 ${name}`, (taskId) =>
+      forceUninstallPackage(name, false, taskId),
+    );
+    await afterTask(record);
+    if (!record.success) return;
+    if (!apps.apps.some((a) => a.name.toLowerCase() === name.toLowerCase())) {
+      showForceUninstall.value = false;
+      pendingUninstall.value = null;
+      message.success(`已强制卸载 ${name}`);
+    } else {
+      message.warning(`仍有文件被占用，未能完全删除 ${name}；可重启资源管理器后重试`);
+    }
+  } finally {
+    forcingUninstall.value = false;
+  }
 }
 
 async function toggleHold() {
-  if (busy.value) return;
+  if (acting.value) return;
   if (!props.app) return;
   const name = props.app.name;
   const next = !props.app.hold;
   ui.logDrawerOpen = true;
-  const record = await runTask(`${next ? "锁定" : "解除锁定"} ${name}`, (taskId) =>
-    setHold(name, next, taskId),
-  );
-  await afterTask(record);
+  acting.value = true;
+  try {
+    const record = await runTask(`${next ? "锁定" : "解除锁定"} ${name}`, (taskId) =>
+      setHold(name, next, taskId),
+    );
+    await afterTask(record);
+  } finally {
+    acting.value = false;
+  }
 }
 
 async function openHomepage() {
@@ -196,5 +280,21 @@ async function openDir() {
   color: var(--text-dim);
   text-align: center;
   padding-top: 60px;
+}
+.force-tip {
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+.force-row {
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.force-name {
+  font-size: 13px;
+  font-family: Consolas, monospace;
 }
 </style>

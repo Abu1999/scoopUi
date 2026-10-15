@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const messageError = vi.hoisted(() => vi.fn());
 const messageSuccess = vi.hoisted(() => vi.fn());
@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   adoptScoopDir: vi.fn(),
   moveScoopDir: vi.fn(),
   removeScoopEnv: vi.fn(),
+  envLockInfo: vi.fn(),
+  forceRemoveScoopEnv: vi.fn(),
   getScoopConfig: vi.fn(),
   getMirrorInfo: vi.fn(),
   runScoop: vi.fn(),
@@ -165,11 +167,11 @@ describe("设置区块", () => {
     expect(mocks.setAria2).toHaveBeenCalledWith(true, null, null);
   });
 
-  it("任务运行时操作按钮禁用", () => {
+  it("任务运行时无影响的配置操作仍可用", () => {
     useLogsStore().start("t1", "安装");
     const wrapper = mount(AccelerationSection, { props: { info: info() } });
     const save = wrapper.findAll("button").find((b) => b.text().includes("保存代理前缀"));
-    expect(save!.attributes("disabled")).toBeDefined();
+    expect(save!.attributes("disabled")).toBeUndefined();
   });
 
   it("加速区块出口未知时不误报可直连", async () => {
@@ -243,6 +245,10 @@ describe("运行环境区块", () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
   it("展示安装目录与应用/软件源数量", async () => {
     const roots = useRootsStore();
     roots.env = envFixture;
@@ -288,5 +294,37 @@ describe("运行环境区块", () => {
     expect(mocks.removeScoopEnv).toHaveBeenCalled();
     expect(roots.env).toBeNull();
     expect(messageSuccess).toHaveBeenCalled();
+  });
+
+  it("删除被占用时弹出强制删除并调用 forceRemoveScoopEnv", async () => {
+    const roots = useRootsStore();
+    roots.env = envFixture;
+    mocks.getScoopConfig.mockResolvedValue(null);
+    mocks.getMirrorInfo.mockResolvedValue(null);
+    mocks.removeScoopEnv.mockRejectedValue(new Error("拒绝访问。 (os error 5)"));
+    mocks.envLockInfo.mockResolvedValue({
+      remaining_files: ["C:\\scoop\\apps\\7zip\\current\\7-zip.dll"],
+      holders: [{ pid: 1234, name: "Explorer.EXE", is_explorer: true }],
+    });
+    mocks.forceRemoveScoopEnv.mockResolvedValue([]);
+    const wrapper = mount(SettingsPage, { attachTo: document.body });
+    await flushPromises();
+    await wrapper.findComponent(NPopconfirm).vm.$emit("positive-click");
+    await flushPromises();
+
+    expect(mocks.envLockInfo).toHaveBeenCalled();
+    expect(document.body.textContent).toContain("环境被占用");
+    expect(document.body.textContent).toContain("Explorer.EXE（PID 1234）");
+
+    const forceButton = Array.from(document.body.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("强制删除"),
+    ) as HTMLButtonElement;
+    expect(forceButton).toBeTruthy();
+    forceButton.click();
+    await flushPromises();
+    expect(mocks.forceRemoveScoopEnv).toHaveBeenCalled();
+    expect(roots.env).toBeNull();
+    expect(messageSuccess).toHaveBeenCalledWith("已强制删除 Scoop 环境");
+    wrapper.unmount();
   });
 });

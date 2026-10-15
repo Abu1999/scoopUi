@@ -10,11 +10,11 @@
           @update:value="onInput"
         />
         <n-button-group class="view-toggle">
-          <n-button size="small" :type="view === 'list' ? 'primary' : 'default'" @click="view = 'list'">
-            列表
-          </n-button>
           <n-button size="small" :type="view === 'grid' ? 'primary' : 'default'" @click="view = 'grid'">
             卡片
+          </n-button>
+          <n-button size="small" :type="view === 'list' ? 'primary' : 'default'" @click="view = 'list'">
+            列表
           </n-button>
         </n-button-group>
         <n-button size="small" :loading="pkgs.refreshing" @click="refresh">刷新索引</n-button>
@@ -77,7 +77,7 @@ import { useUiStore } from "../stores/ui";
 const pkgs = usePackagesStore();
 const roots = useRootsStore();
 const input = ref(pkgs.query);
-const view = ref<"list" | "grid">("list");
+const view = ref<"list" | "grid">("grid");
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 function onInput(value: string) {
